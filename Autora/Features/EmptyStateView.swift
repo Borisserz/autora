@@ -1,0 +1,57 @@
+import SwiftUI
+
+enum EmptyIllustration: String {
+    case search, favorites, listings, messages
+
+    var imageName: String {
+        switch self {
+        case .search: "EmptySearch"
+        case .favorites: "EmptyFavorites"
+        case .listings: "EmptyListings"
+        case .messages: "EmptyMessages"
+        }
+    }
+}
+
+struct EmptyStateView: View {
+    var title: String
+    var text: String
+    var illustration: EmptyIllustration?
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Spacer()
+            if let illustration {
+                Image(illustration.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                    .accessibilityHidden(true)
+            }
+            Text(title)
+                .font(.system(.title2, design: .serif).weight(.semibold))
+                .foregroundStyle(AutoraTheme.ink)
+            Text(text)
+                .font(.body)
+                .foregroundStyle(AutoraTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(.body)
+                    .foregroundStyle(AutoraTheme.ink)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(AutoraTheme.ink).frame(height: 1)
+                    }
+                    .buttonStyle(PressableInkStyle())
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+    }
+}

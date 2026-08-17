@@ -1,0 +1,181 @@
+{
+  "makes": [
+    {
+      "name": "Audi",
+      "models": [
+        { "name": "A3", "generations": ["8V", "8Y"] },
+        { "name": "A4", "generations": ["B8", "B9"] },
+        { "name": "A6", "generations": ["C7", "C8"] },
+        { "name": "Q5", "generations": ["8R", "FY"] },
+        { "name": "Q7", "generations": ["4L", "4M"] }
+      ]
+    },
+    {
+      "name": "BMW",
+      "models": [
+        { "name": "3", "generations": ["F30", "G20"] },
+        { "name": "5", "generations": ["F10", "G30"] },
+        { "name": "X3", "generations": ["F25", "G01"] },
+        { "name": "X5", "generations": ["E70", "F15", "G05"] }
+      ]
+    },
+    {
+      "name": "BYD",
+      "models": [
+        { "name": "Seal", "generations": [] },
+        { "name": "Song Plus", "generations": [] }
+      ]
+    },
+    {
+      "name": "Chery",
+      "models": [
+        { "name": "Tiggo 4", "generations": [] },
+        { "name": "Tiggo 7", "generations": [] }
+      ]
+    },
+    {
+      "name": "Ford",
+      "models": [
+        { "name": "Focus", "generations": ["II", "III"] },
+        { "name": "Mondeo", "generations": ["IV", "V"] }
+      ]
+    },
+    {
+      "name": "Geely",
+      "models": [
+        { "name": "Atlas", "generations": [] },
+        { "name": "Coolray", "generations": [] },
+        { "name": "Emgrand", "generations": [] }
+      ]
+    },
+    {
+      "name": "Haval",
+      "models": [
+        { "name": "H6", "generations": [] },
+        { "name": "Jolion", "generations": [] }
+      ]
+    },
+    {
+      "name": "Honda",
+      "models": [
+        { "name": "Civic", "generations": ["IX", "X"] },
+        { "name": "CR-V", "generations": ["IV", "V"] }
+      ]
+    },
+    {
+      "name": "Hyundai",
+      "models": [
+        { "name": "Solaris", "generations": [] },
+        { "name": "Sonata", "generations": [] },
+        { "name": "Tucson", "generations": ["III", "IV"] }
+      ]
+    },
+    {
+      "name": "Kia",
+      "models": [
+        { "name": "Ceed", "generations": [] },
+        { "name": "Rio", "generations": [] },
+        { "name": "Sportage", "generations": ["III", "IV"] }
+      ]
+    },
+    {
+      "name": "Lada",
+      "models": [
+        { "name": "Granta", "generations": [] },
+        { "name": "Vesta", "generations": [] },
+        { "name": "Niva", "generations": [] }
+      ]
+    },
+    {
+      "name": "Lexus",
+      "models": [
+        { "name": "RX", "generations": ["III", "IV"] },
+        { "name": "NX", "generations": [] }
+      ]
+    },
+    {
+      "name": "Mazda",
+      "models": [
+        { "name": "3", "generations": ["BM", "BP"] },
+        { "name": "6", "generations": ["GJ", "GL"] },
+        { "name": "CX-5", "generations": ["KE", "KF"] }
+      ]
+    },
+    {
+      "name": "Mercedes-Benz",
+      "models": [
+        { "name": "C-Class", "generations": ["W204", "W205"] },
+        { "name": "E-Class", "generations": ["W212", "W213"] },
+        { "name": "GLC", "generations": [] }
+      ]
+    },
+    {
+      "name": "Mitsubishi",
+      "models": [
+        { "name": "Outlander", "generations": ["III"] },
+        { "name": "ASX", "generations": [] }
+      ]
+    },
+    {
+      "name": "Nissan",
+      "models": [
+        { "name": "Qashqai", "generations": ["J10", "J11"] },
+        { "name": "X-Trail", "generations": ["T32"] }
+      ]
+    },
+    {
+      "name": "Opel",
+      "models": [
+        { "name": "Astra", "generations": ["J", "K"] },
+        { "name": "Insignia", "generations": [] }
+      ]
+    },
+    {
+      "name": "Peugeot",
+      "models": [
+        { "name": "308", "generations": ["T9"] },
+        { "name": "3008", "generations": [] }
+      ]
+    },
+    {
+      "name": "Renault",
+      "models": [
+        { "name": "Logan", "generations": [] },
+        { "name": "Megane", "generations": ["III", "IV"] },
+        { "name": "Duster", "generations": [] }
+      ]
+    },
+    {
+      "name": "Skoda",
+      "models": [
+        { "name": "Octavia", "generations": ["A5", "A7", "A8"] },
+        { "name": "Rapid", "generations": [] },
+        { "name": "Superb", "generations": ["B6", "B8"] }
+      ]
+    },
+    {
+      "name": "Toyota",
+      "models": [
+        { "name": "Camry", "generations": ["XV50", "XV70"] },
+        { "name": "Corolla", "generations": ["E150", "E180"] },
+        { "name": "RAV4", "generations": ["XA40", "XA50"] }
+      ]
+    },
+    {
+      "name": "Volkswagen",
+      "models": [
+        { "name": "Golf", "generations": ["6", "7", "8"] },
+        { "name": "Passat", "generations": ["B6", "B7", "B8", "B8.5"] },
+        { "name": "Polo", "generations": ["5", "6"] },
+        { "name": "Tiguan", "generations": ["I", "II"] }
+      ]
+    },
+    {
+      "name": "Volvo",
+      "models": [
+        { "name": "XC60", "generations": [] },
+        { "name": "S60", "generations": [] }
+      ]
+    }
+  ]
+}
