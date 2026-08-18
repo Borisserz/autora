@@ -11,31 +11,65 @@ struct ListingDetailView: View {
     @State private var chatID: String?
     @State private var chatError: String?
     @State private var copied = false
+    @State private var showVIN = false
+    @State private var downPercent = 30
+    @State private var leaseYears = 3
+
+    private var usd: Double {
+        PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)
+    }
+
+    private var leaseBYN: Int {
+        LeaseQuote.monthlyBYN(priceUSD: usd, downPercent: downPercent, years: leaseYears, usdBYN: model.fx.usdBYN)
+    }
 
     var body: some View {
         ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    StretchyCatalogPhoto(urls: listing.photoURLs, title: listing.title)
-                    VStack(alignment: .leading, spacing: 16) {
-                        colophon
-                        specPairs
-                        Text(listing.description)
-                            .font(.body)
-                            .foregroundStyle(AutoraTheme.ink)
-                        seller
-                        quietActions
-                        sellerListings
-                        similar
+            VStack(alignment: .leading, spacing: 16) {
+                StretchyCatalogPhoto(urls: listing.photoURLs, title: listing.title)
+                    .overlay(alignment: .bottomLeading) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                            Text("Проверено CoolAV • Юр. чистота")
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AutoraTheme.emerald)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(12)
                     }
-                    .padding(.horizontal, AutoraTheme.pageGutter)
-                    .padding(.bottom, 28)
+                VStack(alignment: .leading, spacing: 14) {
+                    priceCard
+                    sellerCard
+                    actionTrio
+                    leaseCard
+                    specGrid
+                    if !listing.description.isEmpty {
+                        descriptionBlock
+                    }
+                    vinBanner
+                    quietActions
+                    sellerListings
+                    similar
                 }
+                .padding(.horizontal, AutoraTheme.pageGutter)
+                .padding(.bottom, 28)
+            }
         }
-        .paperCanvas()
+        .background(AutoraTheme.detailCanvas)
+        .toolbarBackground(AutoraTheme.detailCanvas, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("\(listing.make) • \(listing.year)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink("Поделиться", item: "autora://listing/\(listing.id)")
+                    .foregroundStyle(.white)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -65,119 +99,302 @@ struct ListingDetailView: View {
         } message: {
             Text(chatError ?? "")
         }
+        .sheet(isPresented: $showVIN) {
+            VinCheckView()
+        }
         .onAppear { model.markViewed(listing.id) }
     }
 
-    private var colophon: some View {
+    private var priceCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(listing.title)
-                    .font(.system(.title, design: .serif).weight(.semibold))
-                    .foregroundStyle(AutoraTheme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline) {
+                Text(PriceConverter.formatUSD(usd))
+                    .font(.system(.largeTitle, design: .serif).weight(.bold))
+                    .foregroundStyle(.white)
                 Spacer(minLength: 8)
-                if listing.isTop {
-                    Text("ТОП")
-                        .font(.caption.bold())
-                        .foregroundStyle(AutoraTheme.ink)
+                Text(PriceConverter.formatApproxBYN(listing.priceBYN))
+                    .font(.footnote.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            HStack(spacing: 8) {
+                if let badge = MarketPrice.badge(for: listing, in: model.listings) {
+                    Text(MarketPrice.caption(badge))
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(badge == "ниже рынка" ? AutoraTheme.emerald : .white.opacity(0.8))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(AutoraTheme.badgeTop)
+                        .background(
+                            (badge == "ниже рынка" ? AutoraTheme.emerald : Color.white).opacity(0.16),
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
                 }
-                if listing.isDemo {
-                    Text("Демо")
-                        .font(.caption)
-                        .tracking(0.4)
-                        .textCase(.uppercase)
-                        .foregroundStyle(AutoraTheme.muted)
-                }
-                if listing.hasVIN {
-                    Text("VIN")
-                        .font(.caption)
-                        .tracking(0.4)
-                        .textCase(.uppercase)
-                        .foregroundStyle(AutoraTheme.muted)
+                Text("📍 \(listing.city)")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+                if listing.isTop {
+                    Text("ТОП")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(AutoraTheme.bargainRed, in: Capsule())
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(PriceConverter.formatBYN(listing.priceBYN))
-                    .font(.largeTitle.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(AutoraTheme.price)
-                if model.showUSD {
-                    Text("≈ " + PriceConverter.formatUSDReference(PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)))
-                        .font(.footnote.monospacedDigit())
-                        .foregroundStyle(AutoraTheme.muted)
+            Text(listing.title)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
+    }
+
+    private var sellerCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text(String(listing.sellerName.prefix(1)))
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AutoraTheme.emerald)
+                    .frame(width: 40, height: 40)
+                    .background(AutoraTheme.emerald.opacity(0.2), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(listing.sellerName)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("\(listing.sellerListingCount) объявлений на CoolAV")
+                        .font(.caption)
+                        .foregroundStyle(AutoraTheme.emerald)
                 }
-                Spacer(minLength: 8)
-                Text(listing.city)
-                    .font(.caption)
-                    .tracking(0.4)
-                    .textCase(.uppercase)
-                    .foregroundStyle(AutoraTheme.muted)
             }
-            if let badge = MarketPrice.badge(for: listing, in: model.listings) {
-                Text(MarketPrice.caption(badge))
-                    .font(.caption)
-                    .foregroundStyle(AutoraTheme.muted)
+            if !isOwn, let url = PhoneLink.telURL(listing.sellerPhone) {
+                Button {
+                    model.recordPhoneReveal(listingID: listing.id)
+                    openURL(url)
+                } label: {
+                    Label("Позвонить: \(listing.sellerPhone)", systemImage: "phone.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(AutoraTheme.emerald, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(PressableInkStyle())
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
+    }
+
+    private var actionTrio: some View {
+        HStack(spacing: 8) {
+            detailAction(
+                title: model.isDeferred(listing.id) ? "В гараже" : "В гараж",
+                systemImage: model.isDeferred(listing.id) ? "bookmark.fill" : "bookmark",
+                on: model.isDeferred(listing.id),
+                tint: AutoraTheme.garageBlue
+            ) {
+                model.toggleDeferred(listing.id)
+            }
+            detailAction(
+                title: model.favoriteIDs.contains(listing.id) ? "В избранном" : "Избранное",
+                systemImage: model.favoriteIDs.contains(listing.id) ? "heart.fill" : "heart",
+                on: model.favoriteIDs.contains(listing.id),
+                tint: AutoraTheme.bargainRed
+            ) {
+                model.toggleFavorite(listing.id)
+            }
+            detailAction(
+                title: model.compareIDs.contains(listing.id) ? "В сравнении" : "Сравнить",
+                systemImage: "scalemass.fill",
+                on: model.compareIDs.contains(listing.id),
+                tint: AutoraTheme.amber
+            ) {
+                model.toggleCompare(listing.id)
             }
         }
     }
 
-    private var specPairs: some View {
-        let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
-        return LazyVGrid(columns: columns, alignment: .leading, spacing: 0) {
-            ForEach(specItems, id: \.0) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.0)
-                        .font(.caption)
-                        .tracking(0.4)
-                        .textCase(.uppercase)
-                        .foregroundStyle(AutoraTheme.muted)
-                    Text(item.1)
-                        .font(.body.monospacedDigit())
-                        .foregroundStyle(AutoraTheme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
+    private func detailAction(
+        title: String,
+        systemImage: String,
+        on: Bool,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                on ? tint : Color.white.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(on ? tint : Color.white.opacity(0.12), lineWidth: 1)
+            }
+        }
+        .buttonStyle(PressableInkStyle())
+    }
+
+    private var leaseCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Лизинг / кредит")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.6))
+                    Text("от \(leaseBYN.formatted()) Br / мес")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
                 }
-                .padding(.vertical, 12)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(AutoraTheme.hairline).frame(height: 1)
+                Spacer()
+                Text("Без справок")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Color(red: 147 / 255, green: 197 / 255, blue: 253 / 255))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.25), in: Capsule())
+            }
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach([20, 30, 50], id: \.self) { pct in
+                        Button("Взнос \(pct)%") { downPercent = pct }
+                    }
+                } label: {
+                    Text("Взнос \(downPercent)%")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                Menu {
+                    ForEach([2, 3, 5], id: \.self) { years in
+                        Button("\(years) года") { leaseYears = years }
+                    }
+                } label: {
+                    Text("\(leaseYears) года")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
             }
         }
+        .padding(14)
+        .background(
+            LinearGradient(colors: [Color.blue.opacity(0.28), Color.indigo.opacity(0.22)], startPoint: .leading, endPoint: .trailing),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.blue.opacity(0.35), lineWidth: 1)
+        }
+    }
+
+    private var specGrid: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Технические характеристики")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(specItems, id: \.0) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.0)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                        Text(item.1)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private var specItems: [(String, String)] {
         var items: [(String, String)] = [
-            ("Год", "\(listing.year)"),
+            ("Год", "\(listing.year) г."),
             ("Пробег", "\(listing.mileageKm.formatted()) км"),
             ("Двигатель", "\(listing.engineLiters) л · \(listing.powerHp) л.с."),
             ("КПП", listing.transmission),
             ("Привод", listing.drivetrain),
             ("Топливо", listing.fuel),
             ("Кузов", listing.body),
-            ("Город", "\(listing.city), \(listing.region)"),
-            ("Учёт", listing.registered ? "На учёте" : "Снят"),
-            ("Растаможен", listing.customsCleared ? "Да" : "Нет"),
-            ("Руль", listing.wheel == .left ? "Левый" : "Правый")
+            ("Город", "\(listing.city), \(listing.region)")
         ]
-        if let vin = listing.vin { items.append(("VIN", vin)) }
-        if listing.bargaining { items.append(("Торг", "Возможен")) }
-        if listing.exchange { items.append(("Обмен", "Возможен")) }
+        if listing.hasVIN, let vin = listing.vin { items.append(("VIN", vin)) }
         return items
     }
 
-    private var seller: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Продавец")
-                .font(.caption)
-                .tracking(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(AutoraTheme.muted)
-            Text(listing.sellerName)
-                .font(.body.weight(.semibold))
-            Text("\(listing.sellerListingCount) объявлений")
-                .font(.footnote)
-                .foregroundStyle(AutoraTheme.muted)
+    private var descriptionBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Описание")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(listing.description)
+                .font(.body)
+                .foregroundStyle(.white.opacity(0.86))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var vinBanner: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Юридический отчёт CoolAV")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AutoraTheme.emerald)
+                Text(listing.hasVIN
+                     ? "VIN проверен: ограничений на регистрацию нет."
+                     : "Проверьте историю по базам ГАИ Беларуси.")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            Spacer()
+            Button("VIN") { showVIN = true }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(16)
+        .background(AutoraTheme.emerald.opacity(0.12), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(AutoraTheme.emerald.opacity(0.35), lineWidth: 1)
         }
     }
 
@@ -190,17 +407,14 @@ struct ListingDetailView: View {
                     copied = true
                 }
                 .font(.footnote)
-                .foregroundStyle(AutoraTheme.ink)
+                .foregroundStyle(.white.opacity(0.75))
             }
             HStack(spacing: 16) {
-                Button(model.compareIDs.contains(listing.id) ? "В сравнении" : "Сравнить") {
-                    model.toggleCompare(listing.id)
-                }
                 Button("Пожаловаться") { showReport = true }
                 Button("Скрыть", role: .destructive) { model.block(sellerID: listing.sellerId) }
             }
             .font(.footnote)
-            .foregroundStyle(AutoraTheme.muted)
+            .foregroundStyle(.white.opacity(0.45))
         }
         .buttonStyle(.plain)
     }
@@ -231,13 +445,15 @@ struct ListingDetailView: View {
                             .padding(.vertical, 16)
                     }
                     .accessibilityIdentifier(AutoraID.write)
-                    if let url = PhoneLink.telURL(listing.sellerPhone) {
+                    if PhoneLink.telURL(listing.sellerPhone) != nil {
                         Rectangle()
-                            .fill(AutoraTheme.canvas.opacity(0.25))
+                            .fill(Color.black.opacity(0.2))
                             .frame(width: 1, height: 28)
                         Button {
                             model.recordPhoneReveal(listingID: listing.id)
-                            openURL(url)
+                            if let url = PhoneLink.telURL(listing.sellerPhone) {
+                                openURL(url)
+                            }
                         } label: {
                             Text("Позвонить")
                                 .font(.body.weight(.semibold))
@@ -249,8 +465,8 @@ struct ListingDetailView: View {
                 }
             }
         }
-        .foregroundStyle(AutoraTheme.canvas)
-        .background(AutoraTheme.ink)
+        .foregroundStyle(.black)
+        .background(AutoraTheme.emerald)
     }
 
     private var sellerListings: some View {
@@ -260,10 +476,9 @@ struct ListingDetailView: View {
         return VStack(alignment: .leading, spacing: 16) {
             if !others.isEmpty {
                 Text("Ещё у продавца")
-                    .font(.caption)
-                    .tracking(0.6)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.55))
                     .textCase(.uppercase)
-                    .foregroundStyle(AutoraTheme.muted)
                 ForEach(Array(others)) { item in
                     NavigationLink(value: item.id) {
                         ListingCardView(listing: item, showsCompare: false, showsFavorite: false)
@@ -284,10 +499,9 @@ struct ListingDetailView: View {
         return VStack(alignment: .leading, spacing: 16) {
             if !peers.isEmpty {
                 Text("Похожие")
-                    .font(.caption)
-                    .tracking(0.6)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.55))
                     .textCase(.uppercase)
-                    .foregroundStyle(AutoraTheme.muted)
                 ForEach(Array(peers)) { item in
                     NavigationLink(value: item.id) {
                         ListingCardView(listing: item, showsCompare: false, showsFavorite: false)

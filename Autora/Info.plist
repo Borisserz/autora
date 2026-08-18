@@ -16,9 +16,9 @@
 		</dict>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Autora сохраняет фото вашего автомобиля в объявлении.</string>
+	<string>CoolAV сохраняет фото вашего автомобиля в объявлении.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Autora снимает фото автомобиля для объявления.</string>
+	<string>CoolAV снимает фото автомобиля для объявления.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

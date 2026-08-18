@@ -20,6 +20,13 @@ final class AppModel {
     var favoriteIDs: Set<String> = [] {
         didSet { persistIfReady { persistFavorites() } }
     }
+    var deferredIDs: Set<String> = [] {
+        didSet { persistIfReady { persistDeferred() } }
+    }
+    var ownedGarage: [OwnedGarageCar] = [] {
+        didSet { persistIfReady { persistOwnedGarage() } }
+    }
+    var toastMessage: String?
     var recentlyViewedIDs: [String] = []
     var compareIDs: [String] = [] {
         didSet { persistIfReady { defaults.set(compareIDs, forKey: Keys.compare) } }
@@ -47,7 +54,7 @@ final class AppModel {
 
     var filtered: [Listing] {
         let timestamp = now()
-        let base = ListingFilter.apply(criteria, to: listings)
+        let base = ListingFilter.apply(criteria, to: listings, usdBYN: fx.usdBYN)
             .filter { !blockedSellerIDs.contains($0.sellerId) }
             .filter { !BumpPolicy.isExpired(bumpedAt: $0.bumpedAt, now: timestamp) }
         return sort.apply(base)
@@ -84,6 +91,8 @@ final class AppModel {
         }
         fx = loaded.fx
         favoriteIDs = Set(defaults.stringArray(forKey: Keys.favorites) ?? [])
+        deferredIDs = Set(defaults.stringArray(forKey: Keys.deferred) ?? [])
+        ownedGarage = loadOwnedGarage()
         recentlyViewedIDs = defaults.stringArray(forKey: Keys.recent) ?? []
         blockedSellerIDs = Set(defaults.stringArray(forKey: Keys.blocked) ?? [])
         savedSearches = mergeSearches(seed: loaded.savedSearches, stored: loadPersistedSearches())
@@ -131,10 +140,31 @@ final class AppModel {
         if favoriteIDs.contains(id) {
             favoriteIDs.remove(id)
             mutateListing(id) { $0.favoritesCount = max(0, $0.favoritesCount - 1) }
+            flash("Авто удалено из Избранного")
         } else {
             favoriteIDs.insert(id)
             mutateListing(id) { $0.favoritesCount += 1 }
+            flash("Автомобиль добавлен в Избранное")
         }
+    }
+
+    func isDeferred(_ id: String) -> Bool {
+        deferredIDs.contains(id)
+    }
+
+    func toggleDeferred(_ id: String) {
+        if deferredIDs.contains(id) {
+            deferredIDs.remove(id)
+            flash("Удалено из отложенных покупок")
+        } else {
+            deferredIDs.insert(id)
+            let title = listing(id: id)?.title ?? "Авто"
+            flash("«\(title)» добавлен в Отложенные покупки")
+        }
+    }
+
+    func flash(_ message: String) {
+        toastMessage = message
     }
 
     func markViewed(_ id: String) {
@@ -324,6 +354,16 @@ final class AppModel {
         defaults.set(Array(favoriteIDs), forKey: Keys.favorites)
     }
 
+    private func persistDeferred() {
+        defaults.set(Array(deferredIDs), forKey: Keys.deferred)
+    }
+
+    private func persistOwnedGarage() {
+        if let data = try? JSONEncoder().encode(ownedGarage) {
+            defaults.set(data, forKey: Keys.ownedGarage)
+        }
+    }
+
     private func persistBlocked() {
         defaults.set(Array(blockedSellerIDs), forKey: Keys.blocked)
     }
@@ -386,6 +426,14 @@ final class AppModel {
         return (try? JSONDecoder().decode([ChatThread].self, from: data)) ?? []
     }
 
+    private func loadOwnedGarage() -> [OwnedGarageCar] {
+        if let data = defaults.data(forKey: Keys.ownedGarage),
+           let decoded = try? JSONDecoder().decode([OwnedGarageCar].self, from: data) {
+            return decoded
+        }
+        return OwnedGarageCar.demoFleet
+    }
+
     private func loadDraft() -> ListingDraft {
         guard let data = defaults.data(forKey: Keys.draft),
               let draft = try? JSONDecoder().decode(ListingDraft.self, from: data) else {
@@ -403,6 +451,8 @@ final class AppModel {
 
     private enum Keys {
         static let favorites = "autora.favorites"
+        static let deferred = "autora.deferred"
+        static let ownedGarage = "autora.ownedGarage"
         static let recent = "autora.recent"
         static let blocked = "autora.blocked"
         static let searches = "autora.savedSearches"

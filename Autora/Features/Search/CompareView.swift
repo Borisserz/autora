@@ -13,41 +13,26 @@ struct CompareView: View {
             if listings.isEmpty {
                 EmptyStateView(
                     title: "Нечего сравнивать",
-                    text: "На карточке нажмите «Сравнить» — до трёх машин.",
+                    text: "На карточке нажмите весы — до трёх машин. Лучше две: так видно выгоду.",
                     illustration: .search,
                     actionTitle: nil
                 )
             } else {
-                ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 0) {
-                        GridRow {
-                            Text("").frame(width: 96)
-                            ForEach(listings) { listing in
-                                compareHeader(listing)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(listings.prefix(2)) { listing in
+                                compareCard(listing)
                             }
                         }
-                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                            Rectangle()
-                                .fill(AutoraTheme.hairline)
-                                .frame(height: 1)
-                                .gridCellColumns(listings.count + 1)
-                            GridRow {
-                                Text(row.0)
-                                    .font(.footnote)
-                                    .foregroundStyle(AutoraTheme.muted)
-                                    .frame(width: 96, alignment: .leading)
-                                ForEach(listings) { listing in
-                                    Text(row.1(listing))
-                                        .font(.subheadline.monospacedDigit())
-                                        .foregroundStyle(AutoraTheme.ink)
-                                        .frame(width: 140, alignment: .leading)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
+                        if listings.count > 2 {
+                            ForEach(listings.dropFirst(2)) { listing in
+                                compareCard(listing)
                             }
-                            .padding(.vertical, 10)
                         }
+                        specTable
                     }
-                    .padding(20)
+                    .padding(16)
                 }
             }
         }
@@ -66,39 +51,69 @@ struct CompareView: View {
         }
     }
 
-    private func compareHeader(_ listing: Listing) -> some View {
+    private func compareCard(_ listing: Listing) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if let url = listing.photoURLs.first {
-                AutoraRemotePhoto(urlString: url, height: 88)
-                    .frame(width: 140, height: 88)
-                    .clipShape(RoundedRectangle(cornerRadius: AutoraTheme.photoRadius, style: .continuous))
+                AutoraRemotePhoto(urlString: url, height: 110)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 110)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             Text(listing.title)
-                .font(.system(.subheadline, design: .serif).weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AutoraTheme.ink)
                 .lineLimit(2)
-                .frame(width: 140, alignment: .leading)
-            Button("Убрать", systemImage: "xmark") {
-                model.toggleCompare(listing.id)
-            }
-            .font(.footnote)
-            .foregroundStyle(AutoraTheme.muted)
+            Text(PriceConverter.formatUSD(PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)))
+                .font(.title3.weight(.bold).monospacedDigit())
+                .foregroundStyle(highlight(CompareAxis.cheaper(listings), listing.id))
+            Text(PriceConverter.formatApproxBYN(listing.priceBYN))
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.muted)
+            Button("Убрать") { model.toggleCompare(listing.id) }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AutoraTheme.muted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AutoraTheme.canvas)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(AutoraTheme.hairline, lineWidth: 1)
         }
     }
 
-    private var rows: [(String, (Listing) -> String)] {
-        [
-            ("Цена", { PriceConverter.formatBYN($0.priceBYN) }),
-            ("Год", { "\($0.year)" }),
-            ("Пробег", { "\($0.mileageKm.formatted()) км" }),
-            ("Кузов", { $0.body }),
-            ("Двигатель", { "\($0.engineLiters) л · \($0.powerHp) л.с." }),
-            ("Топливо", { $0.fuel }),
-            ("КПП", { $0.transmission }),
-            ("Привод", { $0.drivetrain }),
-            ("Город", { $0.city }),
-            ("Руль", { $0.wheel == .left ? "Левый" : "Правый" }),
-            ("Растаможен", { $0.customsCleared ? "Да" : "Нет" })
-        ]
+    private var specTable: some View {
+        VStack(spacing: 0) {
+            specRow("Год", listings.map { "\($0.year)" }, winner: CompareAxis.newer(listings))
+            specRow("Пробег", listings.map { "\($0.mileageKm.formatted()) км" }, winner: CompareAxis.fewerKm(listings))
+            specRow("Кузов", listings.map(\.body), winner: nil)
+            specRow("Топливо", listings.map(\.fuel), winner: nil)
+            specRow("КПП", listings.map(\.transmission), winner: nil)
+            specRow("Город", listings.map(\.city), winner: nil)
+        }
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func specRow(_ title: String, _ values: [String], winner: String?) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.muted)
+                .frame(width: 64, alignment: .leading)
+            ForEach(Array(listings.enumerated()), id: \.element.id) { index, listing in
+                if index < values.count {
+                    Text(values[index])
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(highlight(winner, listing.id))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .padding(12)
+    }
+
+    private func highlight(_ winnerID: String?, _ id: String) -> Color {
+        winnerID == id ? AutoraTheme.emerald : AutoraTheme.ink
     }
 }

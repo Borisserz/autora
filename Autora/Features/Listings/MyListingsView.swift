@@ -69,12 +69,13 @@ struct MyListingsView: View {
                 }
                 ForEach(model.myListings) { listing in
                     VStack(alignment: .leading, spacing: 10) {
-                        Button {
-                            path.append(listing.id)
-                        } label: {
-                            ListingCardView(listing: listing, showsCompare: false, showsFavorite: false)
-                        }
-                        .buttonStyle(PressableInkStyle())
+                        ListingCardView(
+                            listing: listing,
+                            showsCompare: false,
+                            showsFavorite: false,
+                            showsGarage: false,
+                            onOpen: { path.append(listing.id) }
+                        )
                         HStack {
                             Text(statusLabel(listing.status))
                                 .font(.caption)

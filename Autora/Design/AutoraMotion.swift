@@ -18,8 +18,8 @@ enum AutoraMotion {
 struct PressableInkStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
-            .opacity(configuration.isPressed ? 0.78 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .opacity(configuration.isPressed ? 0.88 : 1)
             .animation(AutoraMotion.press, value: configuration.isPressed)
     }
 }
@@ -56,19 +56,10 @@ extension View {
 }
 
 private struct PaperCanvas: ViewModifier {
-    @Environment(\.colorScheme) private var scheme
-
     func body(content: Content) -> some View {
         content.background {
-            ZStack {
-                AutoraTheme.canvas
-                Image("PaperGrain")
-                    .resizable(resizingMode: .tile)
-                    .opacity(scheme == .dark ? 0.07 : 0.16)
-                    .blendMode(scheme == .dark ? .screen : .multiply)
-                    .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
+            AutoraTheme.canvas
+                .ignoresSafeArea()
         }
     }
 }

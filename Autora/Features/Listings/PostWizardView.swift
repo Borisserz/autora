@@ -78,15 +78,15 @@ struct PostWizardView: View {
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .padding(.vertical, 16)
-                    .foregroundStyle(AutoraTheme.canvas)
-                    .background(canAdvance ? AutoraTheme.ink : AutoraTheme.ink.opacity(0.35))
+                    .foregroundStyle(step < 5 ? AutoraTheme.canvas : .black)
+                    .background(canAdvance ? (step < 5 ? AutoraTheme.ink : AutoraTheme.emerald) : AutoraTheme.ink.opacity(0.35))
                     .buttonStyle(PressableInkStyle())
                     .accessibilityIdentifier(AutoraID.wizardNext)
                 }
             }
             .padding(20)
             .paperCanvas()
-            .navigationTitle("Подача")
+            .navigationTitle("Подать объявление")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Закрыть") { dismiss() }

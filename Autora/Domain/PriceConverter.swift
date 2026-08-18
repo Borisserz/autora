@@ -28,4 +28,8 @@ enum PriceConverter {
     static func formatUSDReference(_ value: Double) -> String {
         "\(formatUSD(value)) справочно"
     }
+
+    static func formatApproxBYN(_ value: Int) -> String {
+        "≈ \(formatBYN(value))"
+    }
 }

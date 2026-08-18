@@ -28,6 +28,7 @@ struct SearchCriteria: Equatable, Sendable, Hashable, Codable {
     var bargaining: Bool?
     var exchange: Bool?
     var hideSold: Bool = true
+    var category: ListingCategoryTab = .all
 
     var isEmpty: Bool {
         self == SearchCriteria()
@@ -62,12 +63,13 @@ struct SearchCriteria: Equatable, Sendable, Hashable, Codable {
         if bargaining != nil { count += 1 }
         if exchange != nil { count += 1 }
         if hideSold == false { count += 1 }
+        if category != .all { count += 1 }
         return count
     }
 }
 
 enum ListingFilter {
-    static func apply(_ criteria: SearchCriteria, to listings: [Listing]) -> [Listing] {
+    static func apply(_ criteria: SearchCriteria, to listings: [Listing], usdBYN: Double = 2.99) -> [Listing] {
         listings.filter { listing in
             if criteria.hideSold, listing.status != .active { return false }
             if listing.forParts == false, listing.status == .active { /* keep */ }
@@ -101,6 +103,9 @@ enum ListingFilter {
             if let hasPhotos = criteria.hasPhotos, listing.hasPhotos != hasPhotos { return false }
             if let bargaining = criteria.bargaining, listing.bargaining != bargaining { return false }
             if let exchange = criteria.exchange, listing.exchange != exchange { return false }
+            if criteria.category != .all, !criteria.category.matches(listing, in: listings, usdBYN: usdBYN) {
+                return false
+            }
             return true
         }
     }
@@ -132,23 +137,31 @@ enum ListingSort: String, CaseIterable, Identifiable, Sendable {
 enum MarketPrice {
     static let minPeers = 5
 
-    static func badge(for listing: Listing, in all: [Listing]) -> String? {
-        let peers = all.filter {
+    static func peers(for listing: Listing, in all: [Listing]) -> [Listing] {
+        all.filter {
             $0.make == listing.make
                 && $0.model == listing.model
                 && $0.status == .active
                 && $0.id != listing.id
                 && abs($0.year - listing.year) <= 2
         }
+    }
+
+    static func peerAverageBYN(for listing: Listing, in all: [Listing]) -> Int? {
+        let peers = peers(for: listing, in: all)
         guard peers.count >= minPeers else { return nil }
-        let avg = peers.map(\.priceBYN).reduce(0, +) / peers.count
+        return peers.map(\.priceBYN).reduce(0, +) / peers.count
+    }
+
+    static func badge(for listing: Listing, in all: [Listing]) -> String? {
+        guard let avg = peerAverageBYN(for: listing, in: all) else { return nil }
         if listing.priceBYN < Int(Double(avg) * 0.92) { return "ниже рынка" }
         if listing.priceBYN > Int(Double(avg) * 1.08) { return "выше рынка" }
         return "около рынка"
     }
 
     static func caption(_ badge: String) -> String {
-        "\(badge) · по выборке Autora"
+        "\(badge) · по выборке CoolAV"
     }
 }
 

@@ -39,7 +39,7 @@ struct MarketPriceTests {
         let cheap = fixture(id: "d", price: 50, bumped: 1, km: 1, make: "Audi")
         #expect(MarketPrice.badge(for: a, in: [a]) == nil)
         #expect(MarketPrice.badge(for: cheap, in: peers + [cheap]) == "ниже рынка")
-        #expect(MarketPrice.caption("ниже рынка") == "ниже рынка · по выборке Autora")
+        #expect(MarketPrice.caption("ниже рынка") == "ниже рынка · по выборке CoolAV")
     }
 
     @Test func badgeIgnoresPeersOutsideYearWindow() {

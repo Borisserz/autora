@@ -13,7 +13,7 @@ final class AutoraUITests: XCTestCase {
 
     func testOpenListingShowsWrite() {
         let app = launch()
-        firstListingCard(in: app).tap()
+        tapListed(firstListingCard(in: app), in: app)
         XCTAssertTrue(app.buttons["autora.listing.write"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Br'")).firstMatch.exists)
     }
@@ -22,9 +22,11 @@ final class AutoraUITests: XCTestCase {
         let app = launch()
         let card = firstListingCard(in: app)
         XCTAssertTrue(card.waitForExistence(timeout: 8))
+        app.swipeUp()
         let listingID = String(card.identifier.dropFirst("autora.listing.".count))
-        app.buttons["autora.listing.favorite.\(listingID)"].tap()
-        app.tabBars.buttons["Избранное"].tap()
+        let favorite = app.buttons["autora.listing.favorite.\(listingID)"]
+        favorite.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        app.tabBars.buttons["autora.tab.favorites"].tap()
         XCTAssertTrue(app.buttons["autora.listing.\(listingID)"].waitForExistence(timeout: 8))
     }
 
@@ -56,7 +58,7 @@ final class AutoraUITests: XCTestCase {
 
     func testWriteRequiresSignInThenOpensChat() {
         let app = launch()
-        firstListingCard(in: app).tap()
+        tapListed(firstListingCard(in: app), in: app)
         let write = app.buttons["autora.listing.write"]
         XCTAssertTrue(write.waitForExistence(timeout: 8))
         write.tap()
@@ -81,5 +83,11 @@ final class AutoraUITests: XCTestCase {
 
     private func firstListingCard(in app: XCUIApplication) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "autora.listing.lst-")).firstMatch
+    }
+
+    private func tapListed(_ element: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(element.waitForExistence(timeout: 8))
+        app.swipeUp()
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
     }
 }

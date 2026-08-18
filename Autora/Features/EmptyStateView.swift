@@ -40,13 +40,11 @@ struct EmptyStateView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .font(.body)
-                    .foregroundStyle(AutoraTheme.ink)
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(AutoraTheme.ink).frame(height: 1)
-                    }
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .buttonStyle(PressableInkStyle())
             }
             Spacer()

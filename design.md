@@ -1,35 +1,33 @@
-# Design — Autora
+# Design — CoolAV
 
-Locked system for the iOS catalog. Do not rotate themes per tab.
+Locked system for the iOS catalog. Match the CoolAV.by site, not editorial Autora.
 
 ## Genre
-editorial (letterpress workshop, Belarus car catalog)
+luxury classifieds portal (white canvas, black pills, emerald verified)
 
 ## Macrostructure family
-App pages: Catalogue. Photo is the product. Masthead wordmark + hairline. No card-in-card.
+App tabs: Catalogue / Garage / Listings / Messages / Profile.
 
 ## Theme
-- paper light `#E6E8E5` · paper dark `#090A09`
-- ink light `#141615` · ink dark `#E6E8E5`
-- muted `#6C706E`
-- accent brass TOP only `#9A8B5C`
-- no av.by `#0084E6`, no cream `#F4F1EA`, no purple
+- canvas light `#FFFFFF` · dark `#191919`
+- surface `#F4F3F3`
+- ink `#191919`
+- emerald verified `#10B981`
+- garage blue `#2563EB`
+- bargain red `#DC2626`
+- amber spark `#F59E0B`
+- radius 24 on cards, 14 on chips
 
 ## Typography
-- Display: New York / SF serif, roman, wordmark + listing titles only
+- Display: SF serif for H1 / prices
 - Body: SF
 - Mono: SF tabular for prices
-- Photo: card 360 · detail 460 · gutter 20
+- Photo: card 16:10 · gutter 16
 
-## Motion (max 3 primitives)
-1. Zoom card → detail (`navigationTransition`)
-2. Catalog stagger once (opacity + 12pt, cap 420ms)
-3. Ink press (scale 0.975, 120ms) + masthead hairline draw
-
-Reduce Motion: skip spatial motion, keep opacity ≤150ms.
-
-## Assets
-Linocut empty-state stills. Grain tiled at low opacity. Tab bar: one SF glyph, 26pt, ink. Not stickers, not 3D.
+## Motion
+1. Fade-in sheets
+2. Marquee ticker 32s (skip if Reduce Motion)
+3. Press scale 0.95
 
 ## Voice
-Russian UI. Specific. No 01/02, no “10k+”, no glass.
+Russian UI. CoolAV.by wordmark. Never av.by.

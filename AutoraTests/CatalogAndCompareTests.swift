@@ -95,6 +95,34 @@ struct CompareSetTests {
         let ids = CompareSet.toggling("b", in: ["a", "b", "c"])
         #expect(ids == ["a", "c"])
     }
+
+    @Test func cheaperWinsOnPriceAndTiesReturnNil() {
+        let cheap = listingFixture(id: "a", price: 50)
+        let pricey = listingFixture(id: "b", price: 90)
+        #expect(CompareAxis.cheaper([cheap, pricey]) == "a")
+        #expect(CompareAxis.cheaper([cheap, listingFixture(id: "c", price: 50)]) == nil)
+    }
+
+    @Test func newerWinsOnYearFewerKmWinsOnMileage() {
+        let old = listingFixture(id: "old", year: 2018, km: 10_000)
+        let fresh = listingFixture(id: "new", year: 2022, km: 80_000)
+        #expect(CompareAxis.newer([old, fresh]) == "new")
+        #expect(CompareAxis.fewerKm([old, fresh]) == "old")
+    }
+}
+
+struct PriceDropTests {
+    @Test func usdBelowMarketWhenCheaperThanPeers() {
+        let peers = (1...5).map { listingFixture(id: "p\($0)", make: "Audi", model: "A4", price: 10_000) }
+        let deal = listingFixture(id: "d", make: "Audi", model: "A4", price: 8_000)
+        let saved = PriceDrop.usdBelowMarket(for: deal, in: peers + [deal], usdBYN: 2.0)
+        #expect(saved == 1_000)
+    }
+
+    @Test func usdBelowMarketNilWithoutPeers() {
+        let lonely = listingFixture(id: "d", make: "Audi", price: 50)
+        #expect(PriceDrop.usdBelowMarket(for: lonely, in: [lonely], usdBYN: 2.99) == nil)
+    }
 }
 
 struct SavedSearchFactoryTests {
