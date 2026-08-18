@@ -47,12 +47,24 @@ struct MyListingsView: View {
             .sheet(isPresented: $showWizard) {
                 PostWizardView()
             }
+            .onAppear {
+                openPendingWizardIfNeeded()
+            }
+            .onChange(of: model.pendingOpenWizard) { _, open in
+                if open { openPendingWizardIfNeeded() }
+            }
         }
     }
 
     private func signInAndPost() {
         if !model.session.isSignedIn { model.signInDemo() }
         showWizard = true
+    }
+
+    private func openPendingWizardIfNeeded() {
+        guard model.pendingOpenWizard else { return }
+        model.pendingOpenWizard = false
+        signInAndPost()
     }
 
     private var listings: some View {

@@ -11,8 +11,8 @@ struct ListingCardView: View {
     var onOpenVIN: (() -> Void)?
     var onOpenCompare: (() -> Void)?
 
-    private var usd: Double {
-        PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)
+    private var price: PriceDisplay.Pair {
+        PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
     }
 
     var body: some View {
@@ -20,11 +20,11 @@ struct ListingCardView: View {
             photo
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(PriceConverter.formatUSD(usd))
+                    Text(price.primary)
                         .font(.system(.title, design: .serif).weight(.semibold))
                         .foregroundStyle(AutoraTheme.ink)
                         .monospacedDigit()
-                    Text(PriceConverter.formatApproxBYN(listing.priceBYN))
+                    Text(price.secondary)
                         .font(.caption)
                         .foregroundStyle(AutoraTheme.muted)
                     Spacer(minLength: 8)

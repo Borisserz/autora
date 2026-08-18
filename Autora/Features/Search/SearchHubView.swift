@@ -162,7 +162,13 @@ struct SearchHubView: View {
                                 Text(listing.title)
                                     .font(.footnote.weight(.semibold))
                                     .lineLimit(1)
-                                Text(PriceConverter.formatUSD(PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)))
+                                Text(
+                                    PriceDisplay.pair(
+                                        byn: listing.priceBYN,
+                                        rate: model.fx.usdBYN,
+                                        showUSD: model.showUSD
+                                    ).primary
+                                )
                                     .font(.footnote.monospacedDigit())
                             }
                             .frame(width: 148, alignment: .leading)
@@ -551,6 +557,26 @@ private struct HubCatalogHeader: View {
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle(AutoraTheme.muted)
                 .contentTransition(.numericText())
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ListingSort.allCases) { option in
+                        let on = model.sort == option
+                        Button(option.title) {
+                            model.sort = option
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(on ? .white : AutoraTheme.ink)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(
+                            on ? AutoraTheme.ink : AutoraTheme.canvas,
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
+                        .buttonStyle(PressableInkStyle())
+                    }
+                }
+                .padding(.horizontal, AutoraTheme.pageGutter)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 12)

@@ -33,3 +33,18 @@ enum PriceConverter {
         "≈ \(formatBYN(value))"
     }
 }
+
+enum PriceDisplay {
+    struct Pair: Equatable, Sendable {
+        var primary: String
+        var secondary: String
+    }
+
+    static func pair(byn: Int, rate: Double, showUSD: Bool) -> Pair {
+        let usd = PriceConverter.usd(fromBYN: byn, rate: rate)
+        if showUSD {
+            return Pair(primary: PriceConverter.formatUSD(usd), secondary: PriceConverter.formatApproxBYN(byn))
+        }
+        return Pair(primary: PriceConverter.formatBYN(byn), secondary: PriceConverter.formatUSD(usd))
+    }
+}

@@ -96,6 +96,12 @@ struct CompareSetTests {
         #expect(ids == ["a", "c"])
     }
 
+    @Test func settingSlotReplacesWithoutDuplicates() {
+        #expect(CompareSet.setting("b", at: 1, in: ["a"]) == ["a", "b"])
+        #expect(CompareSet.setting("c", at: 0, in: ["a", "b"]) == ["c", "b"])
+        #expect(CompareSet.setting("a", at: 1, in: ["a", "b"]) == ["b", "a"])
+    }
+
     @Test func cheaperWinsOnPriceAndTiesReturnNil() {
         let cheap = listingFixture(id: "a", price: 50)
         let pricey = listingFixture(id: "b", price: 90)

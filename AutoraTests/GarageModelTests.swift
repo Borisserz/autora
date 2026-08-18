@@ -30,4 +30,34 @@ struct GarageModelTests {
         #expect(app.ownedGarage.count >= 1)
         #expect(app.ownedGarage.contains { $0.make == "Geely" })
     }
+
+    @Test func addAndRemoveOwnedCarPersists() {
+        let app = model(listings: [])
+        let start = app.ownedGarage.count
+        let car = OwnedGarageCar(
+            id: "gar-test",
+            make: "Mazda",
+            model: "6",
+            year: 2018,
+            currentValueUSD: 12_000,
+            currentValueBYN: 35_880,
+            monthlyChangeUSD: 10,
+            mileageKm: 90_000,
+            nextMotDate: "01.01.2027",
+            nextInsuranceDate: "01.01.2027",
+            nextOilServiceKm: 95_000,
+            city: "Минск",
+            engine: "2.0"
+        )
+        app.addOwned(car)
+        #expect(app.ownedGarage.count == start + 1)
+        app.removeOwned("gar-test")
+        #expect(!app.ownedGarage.contains { $0.id == "gar-test" })
+        let reloaded = AppModel(
+            seed: SeedFile(listings: [], chats: [], savedSearches: [], fx: FXRate(usdBYN: 2.99)),
+            defaults: app.defaults,
+            now: { 1_000_000 }
+        )
+        #expect(!reloaded.ownedGarage.contains { $0.id == "gar-test" })
+    }
 }

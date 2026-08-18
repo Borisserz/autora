@@ -9,32 +9,25 @@ struct CompareView: View {
     }
 
     var body: some View {
-        Group {
-            if listings.isEmpty {
-                EmptyStateView(
-                    title: "Нечего сравнивать",
-                    text: "На карточке нажмите весы — до трёх машин. Лучше две: так видно выгоду.",
-                    illustration: .search,
-                    actionTitle: nil
-                )
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack(alignment: .top, spacing: 10) {
-                            ForEach(listings.prefix(2)) { listing in
-                                compareCard(listing)
-                            }
-                        }
-                        if listings.count > 2 {
-                            ForEach(listings.dropFirst(2)) { listing in
-                                compareCard(listing)
-                            }
-                        }
-                        specTable
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Два автомобиля рядом. Выберите слот — видно цену и пробег.")
+                    .font(.footnote)
+                    .foregroundStyle(AutoraTheme.muted)
+                HStack(alignment: .top, spacing: 10) {
+                    slot(0)
+                    slot(1)
+                }
+                if listings.count > 2 {
+                    ForEach(listings.dropFirst(2)) { listing in
+                        compareCard(listing, slot: 2)
                     }
-                    .padding(16)
+                }
+                if listings.count >= 2 {
+                    specTable
                 }
             }
+            .padding(16)
         }
         .paperCanvas()
         .navigationTitle("Сравнение")
@@ -51,8 +44,61 @@ struct CompareView: View {
         }
     }
 
-    private func compareCard(_ listing: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    @ViewBuilder
+    private func slot(_ index: Int) -> some View {
+        if let listing = listing(at: index) {
+            compareCard(listing, slot: index)
+        } else {
+            emptySlot(index)
+        }
+    }
+
+    private func listing(at index: Int) -> Listing? {
+        guard model.compareIDs.indices.contains(index) else { return nil }
+        return model.listing(id: model.compareIDs[index])
+    }
+
+    private func pickerListings(for index: Int) -> [Listing] {
+        let taken = Set(
+            model.compareIDs.enumerated().compactMap { offset, id in
+                offset == index ? nil : id
+            }
+        )
+        return model.listings.filter { $0.status == .active && !taken.contains($0.id) }
+    }
+
+    private func emptySlot(_ index: Int) -> some View {
+        Menu {
+            ForEach(pickerListings(for: index)) { listing in
+                Button(listing.title) {
+                    model.setCompare(listing.id, slot: index)
+                }
+            }
+        } label: {
+            VStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.semibold))
+                Text("Авто \(index + 1)")
+                    .font(.subheadline.weight(.semibold))
+                Text("Выбрать из каталога")
+                    .font(.caption)
+                    .foregroundStyle(AutoraTheme.muted)
+            }
+            .frame(maxWidth: .infinity, minHeight: 180)
+            .foregroundStyle(AutoraTheme.ink)
+            .background(AutoraTheme.canvas)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AutoraTheme.hairline, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func compareCard(_ listing: Listing, slot: Int) -> some View {
+        let price = PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+        return VStack(alignment: .leading, spacing: 8) {
             if let url = listing.photoURLs.first {
                 AutoraRemotePhoto(urlString: url, height: 110)
                     .frame(maxWidth: .infinity)
@@ -63,15 +109,25 @@ struct CompareView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AutoraTheme.ink)
                 .lineLimit(2)
-            Text(PriceConverter.formatUSD(PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)))
+            Text(price.primary)
                 .font(.title3.weight(.bold).monospacedDigit())
                 .foregroundStyle(highlight(CompareAxis.cheaper(listings), listing.id))
-            Text(PriceConverter.formatApproxBYN(listing.priceBYN))
+            Text(price.secondary)
                 .font(.caption)
                 .foregroundStyle(AutoraTheme.muted)
-            Button("Убрать") { model.toggleCompare(listing.id) }
+            HStack {
+                Menu("Заменить") {
+                    ForEach(pickerListings(for: slot)) { candidate in
+                        Button(candidate.title) {
+                            model.setCompare(candidate.id, slot: slot)
+                        }
+                    }
+                }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(AutoraTheme.muted)
+                Button("Убрать") { model.toggleCompare(listing.id) }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AutoraTheme.muted)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)

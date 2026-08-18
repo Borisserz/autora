@@ -19,6 +19,10 @@ struct ListingDetailView: View {
         PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)
     }
 
+    private var price: PriceDisplay.Pair {
+        PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+    }
+
     private var leaseBYN: Int {
         LeaseQuote.monthlyBYN(priceUSD: usd, downPercent: downPercent, years: leaseYears, usdBYN: model.fx.usdBYN)
     }
@@ -108,11 +112,11 @@ struct ListingDetailView: View {
     private var priceCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(PriceConverter.formatUSD(usd))
+                Text(price.primary)
                     .font(.system(.largeTitle, design: .serif).weight(.bold))
                     .foregroundStyle(.white)
                 Spacer(minLength: 8)
-                Text(PriceConverter.formatApproxBYN(listing.priceBYN))
+                Text(price.secondary)
                     .font(.footnote.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.7))
             }

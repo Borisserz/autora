@@ -204,6 +204,11 @@ struct AppModelTests {
         #expect(reloaded.session.profile?.id == "me-local")
     }
 
+    @Test func showUSDDefaultsTrueWhenKeyMissing() {
+        let app = model(listings: [])
+        #expect(app.showUSD)
+    }
+
     @Test func showUSDAndCompareSurviveReload() {
         let app = model(listings: [listingFixture(id: "a")])
         app.showUSD = true
@@ -215,6 +220,17 @@ struct AppModelTests {
         )
         #expect(reloaded.showUSD)
         #expect(reloaded.compareIDs == ["a"])
+    }
+
+    @Test func applyValuationToDraftFillsListingAndOpensListingsTab() {
+        let app = model(listings: [])
+        app.applyValuationToDraft(make: "Geely", year: 2022, mileageKm: 45_000, priceBYN: 65_340)
+        #expect(app.listingDraft.make == "Geely")
+        #expect(app.listingDraft.year == 2022)
+        #expect(app.listingDraft.mileageKm == 45_000)
+        #expect(app.listingDraft.priceBYN == 65_340)
+        #expect(app.selectedTab == .listings)
+        #expect(app.pendingOpenWizard)
     }
 
     @Test func chatsSurviveReload() throws {

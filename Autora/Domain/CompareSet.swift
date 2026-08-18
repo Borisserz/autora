@@ -12,4 +12,15 @@ enum CompareSet {
         guard ids.count < limit else { return ids }
         return ids + [id]
     }
+
+    static func setting(_ id: String, at index: Int, in ids: [String]) -> [String] {
+        guard index >= 0, index < limit else { return ids }
+        var slots = ids.filter { $0 != id }
+        if index < slots.count {
+            slots[index] = id
+        } else {
+            slots.append(id)
+        }
+        return Array(slots.prefix(limit))
+    }
 }

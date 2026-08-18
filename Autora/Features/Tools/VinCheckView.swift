@@ -4,7 +4,7 @@ struct VinCheckView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vin = "X7LLG1234PA987654"
     @State private var searching = false
-    @State private var ready = true
+    @State private var ready = false
 
     var body: some View {
         NavigationStack {
@@ -136,8 +136,13 @@ struct ValuationView: View {
                     .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     Button("Разместить объявление по этой цене") {
+                        model.applyValuationToDraft(
+                            make: make,
+                            year: year,
+                            mileageKm: mileage,
+                            priceBYN: quote.byn
+                        )
                         dismiss()
-                        model.selectedTab = .listings
                     }
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)

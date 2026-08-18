@@ -59,4 +59,13 @@ struct PriceDisplayTests {
         #expect(PriceConverter.formatApproxBYN(113_160).hasPrefix("≈"))
         #expect(PriceConverter.formatApproxBYN(113_160).contains("Br"))
     }
+
+    @Test func pairFlipsWhenShowUSDIsOff() {
+        let usdOn = PriceDisplay.pair(byn: 2_990, rate: 2.99, showUSD: true)
+        #expect(usdOn.primary.hasPrefix("$"))
+        #expect(usdOn.secondary.contains("Br"))
+        let bynOn = PriceDisplay.pair(byn: 2_990, rate: 2.99, showUSD: false)
+        #expect(bynOn.primary.contains("Br"))
+        #expect(bynOn.secondary.contains("$"))
+    }
 }

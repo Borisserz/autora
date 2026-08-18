@@ -14,9 +14,10 @@ final class AppModel {
     var fx = FXRate(usdBYN: 2.99)
     var criteria = SearchCriteria()
     var sort: ListingSort = .newest
-    var showUSD = false {
+    var showUSD = true {
         didSet { persistIfReady { defaults.set(showUSD, forKey: Keys.showUSD) } }
     }
+    var pendingOpenWizard = false
     var favoriteIDs: Set<String> = [] {
         didSet { persistIfReady { persistFavorites() } }
     }
@@ -100,7 +101,11 @@ final class AppModel {
            let decoded = try? JSONDecoder().decode([ListingReport].self, from: data) {
             reports = decoded
         }
-        showUSD = defaults.bool(forKey: Keys.showUSD)
+        if defaults.object(forKey: Keys.showUSD) == nil {
+            showUSD = true
+        } else {
+            showUSD = defaults.bool(forKey: Keys.showUSD)
+        }
         compareIDs = defaults.stringArray(forKey: Keys.compare) ?? []
         session = loadSession()
         myListings = loadMyListings()
@@ -204,6 +209,30 @@ final class AppModel {
 
     func toggleCompare(_ id: String) {
         compareIDs = CompareSet.toggling(id, in: compareIDs)
+    }
+
+    func setCompare(_ id: String, slot: Int) {
+        compareIDs = CompareSet.setting(id, at: slot, in: compareIDs)
+    }
+
+    func applyValuationToDraft(make: String, year: Int, mileageKm: Int, priceBYN: Int) {
+        listingDraft.make = make
+        listingDraft.year = year
+        listingDraft.mileageKm = mileageKm
+        listingDraft.priceBYN = priceBYN
+        pendingOpenWizard = true
+        selectedTab = .listings
+    }
+
+    func addOwned(_ car: OwnedGarageCar) {
+        guard !ownedGarage.contains(where: { $0.id == car.id }) else { return }
+        ownedGarage.append(car)
+        flash("Авто добавлено в автопарк")
+    }
+
+    func removeOwned(_ id: String) {
+        ownedGarage.removeAll { $0.id == id }
+        flash("Авто удалено из автопарка")
     }
 
     @discardableResult

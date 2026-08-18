@@ -4,6 +4,7 @@ struct GarageView: View {
     @Environment(AppModel.self) private var model
     @State private var tab = 0
     @State private var path = NavigationPath()
+    @State private var showAddCar = false
     @Namespace private var catalog
 
     private var tabs: [(String, Int)] {
@@ -54,6 +55,9 @@ struct GarageView: View {
                     ListingDetailView(listing: listing)
                         .navigationTransition(.zoom(sourceID: id, in: catalog))
                 }
+            }
+            .sheet(isPresented: $showAddCar) {
+                AddGarageCarView()
             }
         }
     }
@@ -118,10 +122,31 @@ struct GarageView: View {
     private var fleet: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Автомобили в вашей собственности")
-                    .font(.system(.title3, design: .serif))
-                ForEach(model.ownedGarage) { car in
-                    GarageFleetCard(car: car)
+                HStack {
+                    Text("Автомобили в вашей собственности")
+                        .font(.system(.title3, design: .serif))
+                    Spacer()
+                    Button("Добавить") { showAddCar = true }
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(AutoraTheme.ink, in: Capsule())
+                }
+                if model.ownedGarage.isEmpty {
+                    EmptyStateView(
+                        title: "Автопарк пуст",
+                        text: "Добавьте свою машину — оценка и напоминания останутся на устройстве.",
+                        illustration: .favorites,
+                        actionTitle: "Добавить авто",
+                        action: { showAddCar = true }
+                    )
+                } else {
+                    ForEach(model.ownedGarage) { car in
+                        GarageFleetCard(car: car) {
+                            model.removeOwned(car.id)
+                        }
+                    }
                 }
             }
             .padding(20)
@@ -167,7 +192,13 @@ struct GarageView: View {
 }
 
 private struct GarageFleetCard: View {
+    @Environment(AppModel.self) private var model
     let car: OwnedGarageCar
+    var onDelete: () -> Void
+
+    private var price: PriceDisplay.Pair {
+        PriceDisplay.pair(byn: car.currentValueBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -221,9 +252,9 @@ private struct GarageFleetCard: View {
                         Text("Рыночная оценка CoolAV")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(AutoraTheme.muted)
-                        Text(PriceConverter.formatUSD(Double(car.currentValueUSD)))
+                        Text(price.primary)
                             .font(.title2.weight(.bold).monospacedDigit())
-                        Text(PriceConverter.formatApproxBYN(car.currentValueBYN))
+                        Text(price.secondary)
                             .font(.caption)
                             .foregroundStyle(AutoraTheme.muted)
                     }
@@ -245,6 +276,10 @@ private struct GarageFleetCard: View {
                     reminder("Страховка", car.nextInsuranceDate)
                     reminder("Масло", "\(car.nextOilServiceKm.formatted()) км")
                 }
+                Button("Удалить из автопарка", role: .destructive, action: onDelete)
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
             .padding(16)
         }
@@ -270,5 +305,76 @@ private struct GarageFleetCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
         .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct AddGarageCarView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var make = "Geely"
+    @State private var modelName = ""
+    @State private var year = 2022
+    @State private var mileageKm = 40_000
+    @State private var city = "Минск"
+
+    private var makes: [String] {
+        let catalog = FilterCatalog.makes(in: model.listings)
+        return catalog.isEmpty ? ["Geely", "BMW", "Volkswagen", "Toyota"] : catalog
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("Марка", selection: $make) {
+                    ForEach(makes, id: \.self) { Text($0).tag($0) }
+                }
+                TextField("Модель", text: $modelName)
+                Stepper("Год \(year)", value: $year, in: 1990...2026)
+                TextField("Пробег, км", value: $mileageKm, format: .number)
+                    .keyboardType(.numberPad)
+                TextField("Город", text: $city)
+            }
+            .navigationTitle("В автопарк")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Закрыть") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Добавить") { add() }
+                        .disabled(modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func add() {
+        let trimmed = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let quote = MarketValuation.quote(
+            make: make,
+            year: year,
+            mileageKm: mileageKm,
+            condition: .good,
+            usdBYN: model.fx.usdBYN
+        )
+        model.addOwned(
+            OwnedGarageCar(
+                id: UUID().uuidString,
+                make: make,
+                model: trimmed,
+                year: year,
+                currentValueUSD: quote.usd,
+                currentValueBYN: quote.byn,
+                monthlyChangeUSD: 0,
+                mileageKm: mileageKm,
+                nextMotDate: "—",
+                nextInsuranceDate: "—",
+                nextOilServiceKm: mileageKm + 10_000,
+                city: city,
+                engine: "—"
+            )
+        )
+        dismiss()
     }
 }
