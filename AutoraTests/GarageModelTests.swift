@@ -64,10 +64,11 @@ struct GarageModelTests {
         #expect(reloaded.garageTab == .fleet)
     }
 
-    @Test func ownedGarageSeedsDemoFleetWhenEmpty() {
+    @Test func ownedGarageStartsEmptyWithoutDemoFleet() {
         let app = model(listings: [])
-        #expect(app.ownedGarage.count >= 1)
-        #expect(app.ownedGarage.contains { $0.make == "Geely" })
+        #expect(app.ownedGarage.isEmpty)
+        #expect(!app.ownedGarage.contains { $0.make == "Geely" })
+        #expect(OwnedGarageCar.demoFleet.count == 2)
     }
 
     @Test func addAndRemoveOwnedCarPersists() {

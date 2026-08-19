@@ -9,6 +9,40 @@ struct SeedFile: Codable, Sendable {
 
 struct FXRate: Codable, Equatable, Sendable {
     var usdBYN: Double
+    var source: FXSource
+
+    init(usdBYN: Double, source: FXSource = .seed) {
+        self.usdBYN = usdBYN
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case usdBYN, source
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        usdBYN = try container.decode(Double.self, forKey: .usdBYN)
+        source = try container.decodeIfPresent(FXSource.self, forKey: .source) ?? .seed
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(usdBYN, forKey: .usdBYN)
+        try container.encode(source, forKey: .source)
+    }
+}
+
+enum FXSource: String, Codable, Sendable {
+    case seed, cache, nbrb
+
+    var caption: String {
+        switch self {
+        case .nbrb: "Курс НБРБ"
+        case .cache: "Курс НБРБ (кэш)"
+        case .seed: "Курс сида"
+        }
+    }
 }
 
 struct SavedSearch: Identifiable, Codable, Equatable, Sendable, Hashable {

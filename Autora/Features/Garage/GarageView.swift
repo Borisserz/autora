@@ -651,18 +651,31 @@ private struct AddGarageCarView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("Марка", selection: $make) {
-                    ForEach(makes, id: \.self) { Text($0).tag($0) }
+                if !OwnedGarageCar.demoFleet.isEmpty {
+                    Section("Из каталога CoolAV") {
+                        ForEach(OwnedGarageCar.demoFleet) { car in
+                            Button("\(car.make) \(car.model)") {
+                                model.addOwned(car)
+                                dismiss()
+                            }
+                            .disabled(model.ownedGarage.contains { $0.id == car.id })
+                        }
+                    }
                 }
-                TextField("Модель", text: $modelName)
-                Stepper("Год \(year)", value: $year, in: 1990...2026)
-                TextField("Пробег, км", value: $mileageKm, format: .number)
-                    .keyboardType(.numberPad)
-                TextField("Город", text: $city)
-                TextField("Номер, например 7788 AB-7", text: $licensePlate)
-                    .textInputAutocapitalization(.characters)
-                TextField("Куплено за, $", value: $buyPriceUSD, format: .number)
-                    .keyboardType(.numberPad)
+                Section("Своё авто") {
+                    Picker("Марка", selection: $make) {
+                        ForEach(makes, id: \.self) { Text($0).tag($0) }
+                    }
+                    TextField("Модель", text: $modelName)
+                    Stepper("Год \(year)", value: $year, in: 1990...2026)
+                    TextField("Пробег, км", value: $mileageKm, format: .number)
+                        .keyboardType(.numberPad)
+                    TextField("Город", text: $city)
+                    TextField("Номер, например 7788 AB-7", text: $licensePlate)
+                        .textInputAutocapitalization(.characters)
+                    TextField("Куплено за, $", value: $buyPriceUSD, format: .number)
+                        .keyboardType(.numberPad)
+                }
             }
             .navigationTitle("В автопарк")
             .navigationBarTitleDisplayMode(.inline)

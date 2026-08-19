@@ -37,6 +37,12 @@ struct InboxDeskTests {
         #expect(InboxDesk.headline(unread: 3, threads: 5) == "3 непрочитанных · 5 переписок")
         #expect(InboxDesk.headline(unread: 0, threads: 2) == "2 переписки")
         #expect(InboxTab.allCases.map(\.title) == ["Все", "Новые", "К цели"])
+        let seed = ChatThread(id: "chat-001", listingId: "a", listingTitle: "A", peerName: "P", unread: 1, messages: [])
+        #expect(InboxDesk.chats(seed: [seed], stored: [], deleted: [], isSignedIn: false).isEmpty)
+        #expect(InboxDesk.chats(seed: [seed], stored: [], deleted: [], isSignedIn: true).map(\.id) == ["chat-001"])
+        #expect(InboxDesk.chats(seed: [seed], stored: [], deleted: ["chat-001"], isSignedIn: true).isEmpty)
+        let live = ChatThread(id: "mine", listingId: "b", listingTitle: "B", peerName: "Q", unread: 0, messages: [])
+        #expect(InboxDesk.chats(seed: [seed], stored: [live], deleted: [], isSignedIn: false).map(\.id) == ["mine"])
     }
 
     @Test func inboxTabAndDeleteThreadPersist() throws {
@@ -67,6 +73,7 @@ struct InboxDeskTests {
             defaults: UserDefaults(suiteName: "autora.tests.\(UUID().uuidString)")!,
             now: { 1 }
         )
+        withSeed.signInDemo()
         withSeed.deleteThread("chat-001")
         let reloadedSeed = AppModel(
             seed: SeedFile(listings: [listing], chats: [seedThread], savedSearches: [], fx: FXRate(usdBYN: 2.99)),
@@ -98,9 +105,23 @@ struct InboxDeskTests {
             defaults: defaults,
             now: { 1 }
         )
+        app.chats = [thread]
         #expect(app.unreadCount == 2)
         app.markAllRead()
         #expect(app.unreadCount == 0)
+    }
+
+    @Test func guestDoesNotLoadSeedChatsUntilSignIn() {
+        let seed = ChatThread(id: "chat-001", listingId: "a", listingTitle: "A", peerName: "P", unread: 1, messages: [])
+        let defaults = UserDefaults(suiteName: "autora.tests.\(UUID().uuidString)")!
+        let guest = AppModel(
+            seed: SeedFile(listings: [], chats: [seed], savedSearches: [], fx: FXRate(usdBYN: 2.99)),
+            defaults: defaults,
+            now: { 1 }
+        )
+        #expect(guest.chats.isEmpty)
+        guest.signInDemo()
+        #expect(guest.chats.map(\.id) == ["chat-001"])
     }
 
     @Test func quickRepliesAreShortRussian() {

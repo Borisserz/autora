@@ -51,6 +51,7 @@ struct RootTabView: View {
             }
         }
         .animation(AutoraMotion.enter, value: model.toastMessage)
+        .task { await model.refreshFX() }
     }
 
     private func tabLabel(_ title: String, systemImage: String, id: String) -> some View {

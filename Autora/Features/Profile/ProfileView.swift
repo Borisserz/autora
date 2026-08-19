@@ -27,7 +27,7 @@ struct ProfileView: View {
                     if snap.blocked > 0 { blocked }
                     if snap.reports > 0 { reports }
                     if snap.isSignedIn { signOut }
-                    Text("\(CoolAVCopy.wordmark) · \(ProfileDesk.rateLine(snap.usdBYN))")
+                    Text("\(CoolAVCopy.wordmark) · \(ProfileDesk.rateLine(snap.usdBYN)) · \(model.fx.source.caption)")
                         .font(.caption.monospaced().weight(.semibold))
                         .foregroundStyle(AutoraTheme.muted)
                 }
@@ -189,7 +189,7 @@ struct ProfileView: View {
             .padding(.vertical, 10)
             .frame(minHeight: 44)
             .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-            Text(ProfileDesk.rateLine(snap.usdBYN))
+            Text("\(ProfileDesk.rateLine(snap.usdBYN)) · \(model.fx.source.caption)")
                 .font(.footnote.monospacedDigit().weight(.semibold))
                 .foregroundStyle(AutoraTheme.ink)
         }

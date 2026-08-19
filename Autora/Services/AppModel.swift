@@ -8,6 +8,9 @@ final class AppModel {
     var chats: [ChatThread] = [] {
         didSet { persistIfReady { persistChats() } }
     }
+    var chatDrafts: [String: String] = [:] {
+        didSet { persistIfReady { persistChatDrafts() } }
+    }
     var savedSearches: [SavedSearch] = [] {
         didSet { persistIfReady { persistSavedSearches() } }
     }
@@ -75,6 +78,8 @@ final class AppModel {
     let defaults: UserDefaults
     var now: () -> TimeInterval
     private var isHydrating = true
+    private var seedChats: [ChatThread] = []
+    private var seedUSDBYN: Double = 2.99
 
     var filtered: [Listing] {
         let timestamp = now()
@@ -113,7 +118,10 @@ final class AppModel {
                 isOffline = true
             }
         }
-        fx = loaded.fx
+        seedUSDBYN = loaded.fx.usdBYN
+        seedChats = loaded.chats
+        let cachedFX = defaults.object(forKey: Keys.fxCache) as? Double
+        fx = NBRBRate.pick(fetched: nil, cached: cachedFX, seed: seedUSDBYN)
         favoriteIDs = Set(defaults.stringArray(forKey: Keys.favorites) ?? [])
         ownedGarage = loadOwnedGarage()
         recentlyViewedIDs = defaults.stringArray(forKey: Keys.recent) ?? []
@@ -133,12 +141,13 @@ final class AppModel {
         myListings = loadMyListings()
         listings = CatalogMerge.listings(seed: loaded.listings, mine: myListings)
         deferredPurchases = loadDeferred(from: listings)
-        let storedChats = loadChats()
-        chats = storedChats.isEmpty
-            ? loaded.chats
-            : CatalogMerge.chats(seed: loaded.chats, live: storedChats)
         deletedChatIDs = Set(defaults.stringArray(forKey: Keys.deletedChats) ?? [])
-        chats.removeAll { deletedChatIDs.contains($0.id) }
+        chats = InboxDesk.chats(
+            seed: loaded.chats,
+            stored: loadChats(),
+            deleted: deletedChatIDs,
+            isSignedIn: session.isSignedIn
+        )
         listingDraft = loadDraft()
         criteria = loadCriteria()
         sort = loadSort()
@@ -146,6 +155,7 @@ final class AppModel {
         sellerDeskTab = SellerDeskTab(rawValue: defaults.integer(forKey: Keys.sellerDeskTab)) ?? .all
         inboxTab = InboxTab(rawValue: defaults.integer(forKey: Keys.inboxTab)) ?? .all
         editingListingID = defaults.string(forKey: Keys.editingListing)
+        chatDrafts = loadChatDrafts()
         isHydrating = false
     }
 
@@ -159,11 +169,31 @@ final class AppModel {
         }
     }
 
+    func refreshFX() async {
+        guard !UITestLaunch.isActive else { return }
+        let cached = defaults.object(forKey: Keys.fxCache) as? Double
+        do {
+            let fetched = try await NBRBClient.fetchUSDBYN()
+            defaults.set(fetched, forKey: Keys.fxCache)
+            fx = NBRBRate.pick(fetched: fetched, cached: cached, seed: seedUSDBYN)
+        } catch {
+            fx = NBRBRate.pick(fetched: nil, cached: cached, seed: seedUSDBYN)
+        }
+    }
+
     func applyCatalog(_ file: SeedFile) {
         listings = CatalogMerge.listings(seed: file.listings, mine: myListings)
-        chats = CatalogMerge.chats(seed: file.chats, live: chats)
-        chats.removeAll { deletedChatIDs.contains($0.id) }
-        fx = file.fx
+        seedChats = file.chats
+        seedUSDBYN = file.fx.usdBYN
+        chats = InboxDesk.chats(
+            seed: file.chats,
+            stored: chats,
+            deleted: deletedChatIDs,
+            isSignedIn: session.isSignedIn
+        )
+        if fx.source == .seed {
+            fx = file.fx
+        }
         savedSearches = mergeSearches(seed: file.savedSearches, stored: loadPersistedSearches())
         loadError = nil
         isOffline = false
@@ -390,6 +420,12 @@ final class AppModel {
         session = .signedIn(
             UserProfile(id: "me-local", name: "Вы", phone: "+375291000000", isOwner: true)
         )
+        chats = InboxDesk.chats(
+            seed: seedChats,
+            stored: chats,
+            deleted: deletedChatIDs,
+            isSignedIn: true
+        )
     }
 
     func signOut() {
@@ -520,13 +556,20 @@ final class AppModel {
         guard let idx = chats.firstIndex(where: { $0.id == threadID }) else { return }
         let msg = ChatMessage(id: UUID().uuidString, fromMe: true, text: body, at: now())
         chats[idx].messages.append(msg)
-        let reply = ChatMessage(
-            id: UUID().uuidString,
-            fromMe: false,
-            text: ChatDraft.sellerReply,
-            at: now()
-        )
-        chats[idx].messages.append(reply)
+        setChatDraft("", for: threadID)
+    }
+
+    func chatDraft(for id: String) -> String {
+        chatDrafts[id] ?? ""
+    }
+
+    func setChatDraft(_ text: String, for id: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            chatDrafts[id] = nil
+        } else {
+            chatDrafts[id] = text
+        }
     }
 
     func markThreadRead(_ id: String) {
@@ -651,6 +694,12 @@ final class AppModel {
         }
     }
 
+    private func persistChatDrafts() {
+        if let data = try? JSONEncoder().encode(chatDrafts) {
+            defaults.set(data, forKey: Keys.chatDrafts)
+        }
+    }
+
     private func persistDraft() {
         if let data = try? JSONEncoder().encode(listingDraft) {
             defaults.set(data, forKey: Keys.draft)
@@ -698,12 +747,20 @@ final class AppModel {
         return (try? JSONDecoder().decode([ChatThread].self, from: data)) ?? []
     }
 
+    private func loadChatDrafts() -> [String: String] {
+        guard let data = defaults.data(forKey: Keys.chatDrafts),
+              let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
     private func loadOwnedGarage() -> [OwnedGarageCar] {
         if let data = defaults.data(forKey: Keys.ownedGarage),
            let decoded = try? JSONDecoder().decode([OwnedGarageCar].self, from: data) {
             return decoded
         }
-        return OwnedGarageCar.demoFleet
+        return []
     }
 
     private func loadDraft() -> ListingDraft {
@@ -749,6 +806,7 @@ final class AppModel {
         static let session = "autora.session"
         static let myListings = "autora.myListings"
         static let chats = "autora.chats"
+        static let chatDrafts = "autora.chatDrafts"
         static let showUSD = "autora.showUSD"
         static let compare = "autora.compare"
         static let draft = "autora.draft"
@@ -759,6 +817,7 @@ final class AppModel {
         static let inboxTab = "autora.inboxTab"
         static let deletedChats = "autora.deletedChats"
         static let editingListing = "autora.editingListing"
+        static let fxCache = "autora.fxCache"
     }
 }
 

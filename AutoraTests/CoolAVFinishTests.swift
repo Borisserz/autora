@@ -3,12 +3,7 @@ import Testing
 @testable import Autora
 
 struct ChatReplyTests {
-    @Test func sellerReplyIsStableDemoCopy() {
-        #expect(ChatDraft.sellerReply.contains("18"))
-        #expect(ChatDraft.sellerReply.contains("Торг"))
-    }
-
-    @Test func sendMessageAppendsSellerReply() throws {
+    @Test func sendMessageDoesNotInventSellerReply() throws {
         let listing = listingFixture(id: "a", sellerId: "other")
         let defaults = UserDefaults(suiteName: "autora.tests.\(UUID().uuidString)")!
         let app = AppModel(
@@ -20,10 +15,17 @@ struct ChatReplyTests {
         let id = try app.startChat(for: listing)
         app.sendMessage(threadID: id, text: "тест")
         let messages = app.chats.first { $0.id == id }?.messages ?? []
-        #expect(messages.count == 2)
+        #expect(messages.count == 1)
         #expect(messages[0].fromMe && messages[0].text == "тест")
-        #expect(!messages[1].fromMe)
-        #expect(messages[1].text == ChatDraft.sellerReply)
+        app.setChatDraft("черновик", for: id)
+        #expect(app.chatDraft(for: id) == "черновик")
+        let reloaded = AppModel(
+            seed: SeedFile(listings: [listing], chats: [], savedSearches: [], fx: FXRate(usdBYN: 2.99)),
+            defaults: defaults,
+            now: { 1 }
+        )
+        #expect(reloaded.chatDraft(for: id) == "черновик")
+        #expect(InboxDesk.waitingForSeller == "Ждём ответ. Это локальная сессия, продавец не онлайн.")
     }
 }
 

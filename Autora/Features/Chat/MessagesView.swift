@@ -275,6 +275,13 @@ struct ChatThreadView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
+                        if (thread?.messages ?? []).isEmpty {
+                            Text(InboxDesk.waitingForSeller)
+                                .font(.footnote)
+                                .foregroundStyle(AutoraTheme.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 8)
+                        }
                         ForEach(thread?.messages ?? []) { message in
                             bubble(message)
                                 .id(message.id)
@@ -294,7 +301,13 @@ struct ChatThreadView: View {
         .paperCanvas()
         .navigationTitle(thread?.peerName ?? "Чат")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { model.markThreadRead(threadID) }
+        .onAppear {
+            draft = model.chatDraft(for: threadID)
+            model.markThreadRead(threadID)
+        }
+        .onChange(of: draft) { _, value in
+            model.setChatDraft(value, for: threadID)
+        }
         .sheet(isPresented: $showListing) {
             if let listing = model.listing(id: thread?.listingId ?? "") {
                 NavigationStack {
@@ -396,6 +409,7 @@ struct ChatThreadView: View {
                     guard let text = ChatDraft.normalized(draft) else { return }
                     model.sendMessage(threadID: threadID, text: text)
                     draft = ""
+                    model.setChatDraft("", for: threadID)
                 }
                 .font(.subheadline.weight(.bold))
                 .frame(minWidth: 44, minHeight: 44)

@@ -99,6 +99,9 @@ struct MyListingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
+            Text("Счётчики своих лотов сохраняются на устройстве.")
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.canvas.opacity(0.72))
             if ready > 0 {
                 Button(ready == 1 ? "Поднять объявление" : "Поднять все (\(ready))") {
                     model.bumpAllReady(at: Date(timeIntervalSince1970: model.now()))

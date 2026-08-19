@@ -53,6 +53,25 @@ enum InboxDesk {
         return "\(threads) переписки"
     }
 
+    static let waitingForSeller = "Ждём ответ. Это локальная сессия, продавец не онлайн."
+
+    static func chats(
+        seed: [ChatThread],
+        stored: [ChatThread],
+        deleted: Set<String>,
+        isSignedIn: Bool
+    ) -> [ChatThread] {
+        let merged: [ChatThread]
+        if !stored.isEmpty {
+            merged = CatalogMerge.chats(seed: isSignedIn ? seed : [], live: stored)
+        } else if isSignedIn && deleted.isEmpty {
+            merged = seed
+        } else {
+            merged = []
+        }
+        return merged.filter { !deleted.contains($0.id) }
+    }
+
     static func timeLabel(at: TimeInterval, now: TimeInterval) -> String {
         let date = Date(timeIntervalSince1970: at)
         let current = Date(timeIntervalSince1970: now)

@@ -1,8 +1,6 @@
 import Foundation
 
 enum ChatDraft {
-    static let sellerReply = "Завтра с 18:00. Торг уместен."
-
     static func normalized(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed

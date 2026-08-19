@@ -131,6 +131,9 @@ struct PostWizardView: View {
 
     private var photosStep: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Text("Фото остаются на этом iPhone. В облако не уходят.")
+                .font(.footnote)
+                .foregroundStyle(AutoraTheme.muted)
             if model.listingDraft.photoURLs.isEmpty {
                 Text("Добавьте свои кадры. Без фото дальше нельзя.")
                     .foregroundStyle(AutoraTheme.muted)
