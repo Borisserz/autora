@@ -33,3 +33,28 @@ struct DeferredPurchase: Identifiable, Codable, Equatable, Sendable, Hashable {
         return max(0, current - targetPriceUSD)
     }
 }
+
+enum DeferredWatch {
+    static func caption(purchase: DeferredPurchase, currentBYN: Int, usdBYN: Double) -> String? {
+        if purchase.isTargetReached(currentBYN: currentBYN, usdBYN: usdBYN) {
+            return "цель $\(purchase.targetPriceUSD)"
+        }
+        let dropped = purchase.usdDropped(currentBYN: currentBYN, usdBYN: usdBYN)
+        guard dropped > 0 else { return nil }
+        return "−\(PriceConverter.formatUSD(Double(dropped))) от старта"
+    }
+
+    static func dropped(
+        in listings: [Listing],
+        purchases: [DeferredPurchase],
+        usdBYN: Double
+    ) -> [Listing] {
+        let byID = Dictionary(uniqueKeysWithValues: listings.map { ($0.id, $0) })
+        return purchases.compactMap { purchase in
+            guard let listing = byID[purchase.id],
+                  caption(purchase: purchase, currentBYN: listing.priceBYN, usdBYN: usdBYN) != nil
+            else { return nil }
+            return listing
+        }
+    }
+}

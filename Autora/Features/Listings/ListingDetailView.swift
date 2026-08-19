@@ -540,7 +540,11 @@ struct ListingDetailView: View {
             }
             HStack(spacing: 16) {
                 Button("Пожаловаться") { showReport = true }
-                Button("Скрыть", role: .destructive) { model.block(sellerID: listing.sellerId) }
+                if model.blockedSellerIDs.contains(listing.sellerId) {
+                    Button("Показать в ленте") { model.unblock(sellerID: listing.sellerId) }
+                } else {
+                    Button("Скрыть", role: .destructive) { model.block(sellerID: listing.sellerId) }
+                }
             }
             .font(.footnote)
             .foregroundStyle(.white.opacity(0.45))

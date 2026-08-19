@@ -65,6 +65,21 @@ struct ProfileView: View {
                     Text("Цена в данных — белорусские рубли. На экране CoolAV показывает $ крупно и Br справочно. Курс сида: \(model.fx.usdBYN, format: .number.precision(.fractionLength(2))).")
                         .font(.footnote)
                         .foregroundStyle(AutoraTheme.muted)
+                    if !model.blockedSellers.isEmpty {
+                        Text("Скрытые продавцы")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AutoraTheme.muted)
+                        ForEach(model.blockedSellers) { seller in
+                            HStack {
+                                Text(seller.name)
+                                    .font(.body.weight(.semibold))
+                                Spacer()
+                                Button("Показать") { model.unblock(sellerID: seller.id) }
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(minHeight: 44)
+                            }
+                        }
+                    }
                     if model.session.isSignedIn {
                         Button("Выйти", role: .destructive, action: model.signOut)
                             .padding(.top, 8)

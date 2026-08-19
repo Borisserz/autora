@@ -45,6 +45,13 @@ struct SearchHubView: View {
                                 onSelect: { path.append($0) }
                             )
                         }
+                        if !DeferredWatch.dropped(
+                            in: model.listings,
+                            purchases: model.deferredPurchases,
+                            usdBYN: model.fx.usdBYN
+                        ).isEmpty {
+                            TargetDropStrip(onSelect: { path.append($0) })
+                        }
                         if let loadError = model.loadError {
                             EmptyStateView(
                                 title: "Каталог недоступен",
@@ -759,6 +766,16 @@ private struct MarketRadarStrip: View {
                 Text("−\(percent)%")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(AutoraTheme.emerald)
+                if let purchase = model.deferredPurchase(id: listing.id),
+                   let drop = DeferredWatch.caption(
+                    purchase: purchase,
+                    currentBYN: listing.priceBYN,
+                    usdBYN: model.fx.usdBYN
+                   ) {
+                    Text(drop)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(AutoraTheme.bargainRed)
+                }
                 Text(listing.title)
                     .font(.caption.weight(.semibold))
                     .lineLimit(2)
@@ -782,5 +799,84 @@ private struct MarketRadarStrip: View {
     private func radarLabel(_ listing: Listing) -> String {
         let percent = MarketDeal.discountPercent(for: listing, in: model.listings) ?? 0
         return "\(listing.title), минус \(percent) процентов, открыть объявление"
+    }
+}
+
+private struct TargetDropStrip: View {
+    @Environment(AppModel.self) private var model
+    var onSelect: (String) -> Void
+
+    var body: some View {
+        let items = DeferredWatch.dropped(
+            in: model.listings,
+            purchases: model.deferredPurchases,
+            usdBYN: model.fx.usdBYN
+        )
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Цена к вашей цели")
+                    .font(.subheadline.weight(.bold))
+                Spacer()
+                Button("Гараж") { model.selectedTab = .favorites }
+                    .font(.caption.weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(items) { listing in
+                        Button {
+                            onSelect(listing.id)
+                        } label: {
+                            dropCard(listing)
+                        }
+                        .buttonStyle(PressableInkStyle())
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, AutoraTheme.pageGutter)
+        .padding(.vertical, 12)
+    }
+
+    private func dropCard(_ listing: Listing) -> some View {
+        let price = PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+        let drop = model.deferredPurchase(id: listing.id).flatMap {
+            DeferredWatch.caption(purchase: $0, currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN)
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            Group {
+                if let url = listing.photoURLs.first {
+                    AutoraRemotePhoto(urlString: url, height: 88, accessibilityText: nil)
+                } else {
+                    Rectangle().fill(AutoraTheme.surface)
+                }
+            }
+            .frame(height: 88)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            VStack(alignment: .leading, spacing: 4) {
+                if let drop {
+                    Text(drop)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(AutoraTheme.bargainRed)
+                }
+                Text(listing.title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(2)
+                    .foregroundStyle(AutoraTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(price.primary)
+                    .font(.footnote.weight(.bold).monospacedDigit())
+                    .foregroundStyle(AutoraTheme.ink)
+            }
+            .padding(10)
+        }
+        .frame(width: 168, alignment: .leading)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AutoraTheme.hairline, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

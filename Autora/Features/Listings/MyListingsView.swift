@@ -4,6 +4,7 @@ struct MyListingsView: View {
     @Environment(AppModel.self) private var model
     @State private var showWizard = false
     @State private var path = NavigationPath()
+    @State private var pendingDeleteID: String?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -56,6 +57,20 @@ struct MyListingsView: View {
             }
             .onChange(of: model.pendingOpenWizard) { _, open in
                 if open { openPendingWizardIfNeeded() }
+            }
+            .confirmationDialog(
+                "Удалить объявление?",
+                isPresented: Binding(
+                    get: { pendingDeleteID != nil },
+                    set: { if !$0 { pendingDeleteID = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Удалить", role: .destructive) {
+                    if let id = pendingDeleteID { model.deleteListing(id) }
+                    pendingDeleteID = nil
+                }
+                Button("Отмена", role: .cancel) { pendingDeleteID = nil }
             }
         }
     }
@@ -124,6 +139,7 @@ struct MyListingsView: View {
                                 } else {
                                     Button("Вернуть") { model.setListingStatus(listing.id, .active) }
                                 }
+                                Button("Удалить", role: .destructive) { pendingDeleteID = listing.id }
                             }
                         }
                         .font(.subheadline)

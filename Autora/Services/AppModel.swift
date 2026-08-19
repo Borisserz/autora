@@ -391,11 +391,39 @@ final class AppModel {
         blockedSellerIDs.insert(sellerID)
     }
 
+    func unblock(sellerID: String) {
+        blockedSellerIDs.remove(sellerID)
+    }
+
+    var blockedSellers: [BlockedSeller] {
+        blockedSellerIDs.sorted().map { id in
+            let name = listings.first { $0.sellerId == id }?.sellerName ?? "Продавец"
+            return BlockedSeller(id: id, name: name)
+        }
+    }
+
+    func deleteListing(_ id: String) {
+        guard myListings.contains(where: { $0.id == id }) else { return }
+        myListings.removeAll { $0.id == id }
+        listings.removeAll { $0.id == id }
+        favoriteIDs.remove(id)
+        compareIDs.removeAll { $0 == id }
+        deferredPurchases.removeAll { $0.id == id }
+        flash("Объявление удалено")
+    }
+
     func sendMessage(threadID: String, text: String) {
         guard let body = ChatDraft.normalized(text) else { return }
         guard let idx = chats.firstIndex(where: { $0.id == threadID }) else { return }
         let msg = ChatMessage(id: UUID().uuidString, fromMe: true, text: body, at: now())
         chats[idx].messages.append(msg)
+        let reply = ChatMessage(
+            id: UUID().uuidString,
+            fromMe: false,
+            text: ChatDraft.sellerReply,
+            at: now()
+        )
+        chats[idx].messages.append(reply)
     }
 
     func markThreadRead(_ id: String) {
@@ -635,6 +663,11 @@ struct UserProfile: Equatable, Codable, Sendable {
     var name: String
     var phone: String
     var isOwner: Bool
+}
+
+struct BlockedSeller: Identifiable, Equatable, Sendable {
+    var id: String
+    var name: String
 }
 
 enum AppError: LocalizedError, Equatable {

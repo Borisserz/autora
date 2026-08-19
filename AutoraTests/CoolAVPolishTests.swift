@@ -34,12 +34,10 @@ struct ListingDraftPriceTests {
 }
 
 struct PhotoGalleryTests {
-    @Test func firstFourHaveNamedCaptionsThenFallback() {
-        #expect(PhotoGallery.caption(index: 0, count: 4) == "Экстерьер")
-        #expect(PhotoGallery.caption(index: 1, count: 4) == "Интерьер и руль")
-        #expect(PhotoGallery.caption(index: 2, count: 4) == "Второй ряд")
-        #expect(PhotoGallery.caption(index: 3, count: 4) == "Диски и оптика")
-        #expect(PhotoGallery.caption(index: 4, count: 6) == "Фото 5")
+    @Test func captionsAreOrdinalNotGuessedShots() {
+        #expect(PhotoGallery.caption(index: 0, count: 4) == "Фото 1 из 4")
+        #expect(PhotoGallery.caption(index: 1, count: 4) == "Фото 2 из 4")
+        #expect(PhotoGallery.caption(index: 4, count: 6) == "Фото 5 из 6")
     }
 }
 

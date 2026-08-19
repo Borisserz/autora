@@ -400,8 +400,13 @@ private struct DeferredTrackerCard: View {
                     .frame(height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(alignment: .topLeading) {
-                        if let item, item.usdDropped(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN) > 0 {
-                            Text("−\(PriceConverter.formatUSD(Double(item.usdDropped(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN)))) от старта")
+                        if let item,
+                           let drop = DeferredWatch.caption(
+                            purchase: item,
+                            currentBYN: listing.priceBYN,
+                            usdBYN: model.fx.usdBYN
+                           ) {
+                            Text(drop)
                                 .font(.caption2.weight(.bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)

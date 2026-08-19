@@ -137,6 +137,14 @@ struct ListingCardView: View {
     }
 
     private var photoBadge: String? {
+        if let purchase = model.deferredPurchase(id: listing.id),
+           let drop = DeferredWatch.caption(
+            purchase: purchase,
+            currentBYN: listing.priceBYN,
+            usdBYN: model.fx.usdBYN
+           ) {
+            return drop
+        }
         if listing.isTop { return "ТОП" }
         if ListingCategoryTab.europe.matches(listing, in: model.listings) { return "Из Европы" }
         if listing.isDemo { return "Демо" }
