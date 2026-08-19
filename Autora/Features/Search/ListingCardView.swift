@@ -21,7 +21,7 @@ struct ListingCardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(price.primary)
-                        .font(.system(.title, design: .serif).weight(.semibold))
+                        .font(.title.weight(.semibold))
                         .foregroundStyle(AutoraTheme.ink)
                         .monospacedDigit()
                     Text(price.secondary)
@@ -31,14 +31,14 @@ struct ListingCardView: View {
                     if let percent = MarketDeal.discountPercent(for: listing, in: model.listings) {
                         Text("−\(percent)% ниже рынка")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
+                            .foregroundStyle(AutoraTheme.europeGreen)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(AutoraTheme.emerald.opacity(0.18), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     } else if let badge = MarketPrice.badge(for: listing, in: model.listings), badge == "ниже рынка" {
                         Text("ниже рынка")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
+                            .foregroundStyle(AutoraTheme.europeGreen)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(AutoraTheme.emerald.opacity(0.18), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -112,7 +112,7 @@ struct ListingCardView: View {
                     Text(CoolAVCopy.verified)
                 }
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
+                .foregroundStyle(AutoraTheme.europeGreen)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.95), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -145,7 +145,6 @@ struct ListingCardView: View {
            ) {
             return drop
         }
-        if listing.isTop { return "ТОП" }
         if ListingCategoryTab.europe.matches(listing, in: model.listings) { return "Из Европы" }
         if listing.isDemo { return "Демо" }
         return nil
@@ -183,14 +182,14 @@ struct ListingCardView: View {
                     model.recordPhoneReveal(listingID: listing.id)
                     openURL(url)
                 } else {
-                    model.flash("Связь с продавцом: \(listing.sellerPhone)")
+                    model.flash("Связь с продавцом: \(listing.sellerPhone)", symbol: "phone.fill")
                 }
             } label: {
                 Label("Позвонить", systemImage: "phone.fill")
                     .font(.caption.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 44)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AutoraTheme.canvas)
                     .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
             }
             .buttonStyle(PressableInkStyle())
@@ -199,20 +198,25 @@ struct ListingCardView: View {
             } label: {
                 Image(systemName: "checkmark.shield.fill")
                     .frame(width: 44, height: 44)
-                    .foregroundStyle(AutoraTheme.garageBlue)
-                    .background(AutoraTheme.garageBlue.opacity(0.12), in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                    .foregroundStyle(AutoraTheme.ink)
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
             }
             .buttonStyle(PressableInkStyle())
+            .accessibilityLabel("Проверка VIN")
             Button {
                 model.toggleCompare(listing.id)
                 onOpenCompare?()
             } label: {
                 Image(systemName: "scalemass.fill")
                     .frame(width: 44, height: 44)
-                    .foregroundStyle(AutoraTheme.ink)
-                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                    .foregroundStyle(model.compareIDs.contains(listing.id) ? AutoraTheme.canvas : AutoraTheme.ink)
+                    .background(
+                        model.compareIDs.contains(listing.id) ? AutoraTheme.ink : AutoraTheme.surface,
+                        in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous)
+                    )
             }
             .buttonStyle(PressableInkStyle())
+            .accessibilityLabel(model.compareIDs.contains(listing.id) ? "Убрать из сравнения" : "Сравнить")
             .accessibilityIdentifier(AutoraID.listingCompare(listing.id))
         }
     }
@@ -227,30 +231,32 @@ struct ListingCardView: View {
                 Text(on ? "В гараже" : "В гараж")
             }
             .font(.caption2.weight(.bold))
-            .foregroundStyle(on ? .white : AutoraTheme.ink)
-            .padding(.horizontal, 10)
-            .frame(height: 36)
-            .background(on ? AutoraTheme.garageBlue : .white.opacity(0.95), in: Capsule())
+            .foregroundStyle(on ? AutoraTheme.canvas : AutoraTheme.ink)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .background(on ? AutoraTheme.ink : AutoraTheme.canvas.opacity(0.95), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .buttonStyle(PressableInkStyle())
+        .accessibilityLabel(on ? "Убрать из гаража" : "В гараж")
     }
 
     private var favoriteButton: some View {
-        Button {
+        let on = model.favoriteIDs.contains(listing.id)
+        return Button {
             withAnimation(AutoraMotion.press) {
                 model.toggleFavorite(listing.id)
             }
         } label: {
-            Image(systemName: model.favoriteIDs.contains(listing.id) ? "heart.fill" : "heart")
+            Image(systemName: on ? "heart.fill" : "heart")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(model.favoriteIDs.contains(listing.id) ? AutoraTheme.bargainRed : AutoraTheme.ink)
-                .frame(width: 36, height: 36)
-                .background(.white.opacity(0.95), in: Circle())
+                .foregroundStyle(on ? AutoraTheme.bargainRed : AutoraTheme.ink)
+                .frame(width: 44, height: 44)
+                .background(AutoraTheme.canvas.opacity(0.95), in: Circle())
         }
         .buttonStyle(PressableInkStyle())
-        .accessibilityLabel("В избранное")
+        .accessibilityLabel(on ? "Удалить из избранного" : "В избранное")
         .accessibilityIdentifier(AutoraID.listingFavorite(listing.id))
-        .sensoryFeedback(.selection, trigger: model.favoriteIDs.contains(listing.id))
+        .sensoryFeedback(.selection, trigger: on)
     }
 }
 

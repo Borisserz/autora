@@ -24,8 +24,8 @@ struct ValuationView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Узнайте реальную рыночную стоимость авто")
-                        .font(.system(.title2, design: .serif))
+                    Text("Оценка по марке, году и пробегу")
+                        .font(.title2.weight(.semibold))
                     Text("Оценка для продажи и покупки. Курс сида CoolAV, не оферта.")
                         .font(.footnote)
                         .foregroundStyle(AutoraTheme.muted)
@@ -54,7 +54,7 @@ struct ValuationView: View {
                             .font(.caption.weight(.bold))
                             .foregroundStyle(AutoraTheme.muted)
                         Text(PriceConverter.formatUSD(Double(quote.usd)))
-                            .font(.system(.largeTitle, design: .serif).weight(.bold))
+                            .font(.largeTitle.weight(.bold).monospacedDigit())
                         Text(PriceConverter.formatApproxBYN(quote.byn))
                             .foregroundStyle(AutoraTheme.muted)
                         Text("Диапазон быстрой продажи: \(PriceConverter.formatUSD(Double(quote.minUSD))) — \(PriceConverter.formatUSD(Double(quote.maxUSD)))")

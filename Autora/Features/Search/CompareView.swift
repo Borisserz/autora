@@ -137,7 +137,7 @@ struct CompareView: View {
                     model.recordPhoneReveal(listingID: listing.id)
                     openURL(url)
                 } else {
-                    model.flash("Связь с продавцом: \(listing.sellerPhone)")
+                    model.flash("Связь с продавцом: \(listing.sellerPhone)", symbol: "phone.fill")
                 }
             }
             .font(.caption.weight(.bold))

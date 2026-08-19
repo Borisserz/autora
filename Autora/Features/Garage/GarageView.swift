@@ -2,58 +2,34 @@ import SwiftUI
 
 struct GarageView: View {
     @Environment(AppModel.self) private var model
-    @State private var tab = 0
     @State private var path = NavigationPath()
     @State private var showAddCar = false
-    @Namespace private var catalog
-
-    private var tabs: [(String, Int)] {
-        [
-            ("Избранное", model.listings.filter { model.favoriteIDs.contains($0.id) }.count),
-            ("Отложенные", model.listings.filter { model.isDeferred($0.id) }.count),
-            ("Автопарк", model.ownedGarage.count),
-            ("Поиски", model.savedSearches.count)
-        ]
-    }
 
     var body: some View {
+        @Bindable var model = model
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(Array(tabs.enumerated()), id: \.offset) { index, item in
-                        Button {
-                            tab = index
-                        } label: {
-                            Text(item.1 > 0 ? "\(item.0) \(item.1)" : item.0)
-                                .font(.caption.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .foregroundStyle(tab == index ? .white : AutoraTheme.ink)
-                                .background(
-                                    tab == index ? AutoraTheme.ink : AutoraTheme.surface,
-                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                )
-                        }
-                        .buttonStyle(PressableInkStyle())
-                    }
-                }
-                .padding(.horizontal, AutoraTheme.pageGutter)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-                switch tab {
-                case 0: bookmarks
-                case 1: deferred
-                case 2: fleet
-                default: searches
-                }
+                bayTicket
+                tabPills
+                tabBody
             }
             .paperCanvas()
-            .navigationTitle("Мой Гараж")
+            .navigationTitle("Мой гараж")
+            .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: String.self) { id in
                 if let listing = model.listing(id: id) {
                     ListingDetailView(listing: listing)
-                        .navigationTransition(.zoom(sourceID: id, in: catalog))
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if model.garageTab == .fleet {
+                        Button("Добавить") { showAddCar = true }
+                            .fontWeight(.semibold)
+                    } else {
+                        Button("Каталог") { model.selectedTab = .search }
+                            .fontWeight(.semibold)
+                    }
                 }
             }
             .sheet(isPresented: $showAddCar) {
@@ -62,13 +38,80 @@ struct GarageView: View {
         }
     }
 
+    private var bayTicket: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("BOX")
+                .font(.caption.monospaced().weight(.bold))
+                .tracking(1.6)
+            Text(model.garageHeadline)
+                .font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(AutoraTheme.canvas)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .padding(.horizontal, AutoraTheme.pageGutter)
+        .padding(.top, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(model.garageHeadline)
+    }
+
+    private var tabPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(GarageTab.allCases) { item in
+                    let count = model.garageCount(for: item)
+                    Button {
+                        model.garageTab = item
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: item.symbol)
+                                .font(.caption.weight(.bold))
+                            Text(item.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text("\(count)")
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(model.garageTab == item ? AutoraTheme.canvas.opacity(0.7) : AutoraTheme.muted)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .foregroundStyle(model.garageTab == item ? AutoraTheme.canvas : AutoraTheme.ink)
+                        .background(
+                            model.garageTab == item ? AutoraTheme.ink : AutoraTheme.surface,
+                            in: RoundedRectangle(cornerRadius: AutoraTheme.chipRadius, style: .continuous)
+                        )
+                    }
+                    .buttonStyle(PressableInkStyle())
+                    .accessibilityLabel("\(item.title), \(count)")
+                    .accessibilityAddTraits(model.garageTab == item ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, AutoraTheme.pageGutter)
+            .padding(.vertical, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var tabBody: some View {
+        switch model.garageTab {
+        case .favorites: bookmarks
+        case .deferred: deferred
+        case .fleet: fleet
+        case .searches: searches
+        }
+    }
+
     @ViewBuilder
     private var bookmarks: some View {
         listingStack(
             model.listings.filter { model.favoriteIDs.contains($0.id) },
-            emptyTitle: "Пока пусто",
-            emptyText: "Нажмите сердце на карточке, чтобы сохранить авто.",
-            showsDrop: false
+            emptyTitle: "В избранном пусто",
+            emptyText: "Нажмите сердце на карточке в каталоге — авто появится здесь.",
+            actionTitle: "Открыть каталог",
+            action: { model.selectedTab = .search }
         )
     }
 
@@ -76,11 +119,11 @@ struct GarageView: View {
     private var deferred: some View {
         let items = model.listings.filter { model.isDeferred($0.id) }
         if items.isEmpty {
-            EmptyStateView(
-                title: "Ваш список отложенных покупок пуст",
-                text: "Нажимайте «В гараж» на автомобилях в каталоге, чтобы следить за скидками.",
-                illustration: .favorites,
-                actionTitle: nil
+            GarageEmpty(
+                title: "Нет отложенных",
+                text: "На карточке нажмите «В гараж», чтобы следить за ценой и целью в $.",
+                actionTitle: "Открыть каталог",
+                action: { model.selectedTab = .search }
             )
         } else {
             ScrollView {
@@ -89,10 +132,10 @@ struct GarageView: View {
                         DeferredTrackerCard(listing: listing) {
                             path.append(listing.id)
                         }
-                        .matchedTransitionSource(id: listing.id, in: catalog)
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, AutoraTheme.pageGutter)
+                .padding(.bottom, 28)
             }
         }
     }
@@ -102,33 +145,22 @@ struct GarageView: View {
         _ items: [Listing],
         emptyTitle: String,
         emptyText: String,
-        showsDrop: Bool
+        actionTitle: String,
+        action: @escaping () -> Void
     ) -> some View {
         if items.isEmpty {
-            EmptyStateView(title: emptyTitle, text: emptyText, illustration: .favorites, actionTitle: nil)
+            GarageEmpty(title: emptyTitle, text: emptyText, actionTitle: actionTitle, action: action)
         } else {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     ForEach(items) { listing in
-                        VStack(alignment: .leading, spacing: 8) {
-                            if showsDrop, let saved = PriceDrop.usdBelowMarket(
-                                for: listing,
-                                in: model.listings,
-                                usdBYN: model.fx.usdBYN
-                            ) {
-                                Text("Цена ниже рынка · выгода \(PriceConverter.formatUSD(Double(saved)))")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(AutoraTheme.emerald)
-                                    .padding(.horizontal, 4)
-                            }
-                            ListingFeedRow(listing: listing) {
-                                path.append(listing.id)
-                            }
-                            .matchedTransitionSource(id: listing.id, in: catalog)
+                        ListingFeedRow(listing: listing) {
+                            path.append(listing.id)
                         }
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, AutoraTheme.pageGutter)
+                .padding(.bottom, 28)
             }
         }
     }
@@ -137,22 +169,10 @@ struct GarageView: View {
     private var fleet: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("Автомобили в вашей собственности")
-                        .font(.system(.title3, design: .serif))
-                    Spacer()
-                    Button("Добавить") { showAddCar = true }
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(AutoraTheme.ink, in: Capsule())
-                }
                 if model.ownedGarage.isEmpty {
-                    EmptyStateView(
+                    GarageEmpty(
                         title: "Автопарк пуст",
-                        text: "Добавьте свою машину — оценка и напоминания останутся на устройстве.",
-                        illustration: .favorites,
+                        text: "Добавьте свою машину — оценка CoolAV и напоминания останутся на устройстве.",
                         actionTitle: "Добавить авто",
                         action: { showAddCar = true }
                     )
@@ -164,45 +184,98 @@ struct GarageView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(.horizontal, AutoraTheme.pageGutter)
+            .padding(.bottom, 28)
         }
     }
 
     @ViewBuilder
     private var searches: some View {
         if model.savedSearches.isEmpty {
-            EmptyStateView(
+            GarageEmpty(
                 title: "Нет сохранённых поисков",
-                text: "Сохраните фильтр с каталога — он останется на этом устройстве.",
-                illustration: .search,
-                actionTitle: nil
+                text: "На каталоге нажмите «Сохранить» — фильтр останется здесь.",
+                actionTitle: "К фильтрам",
+                action: { model.selectedTab = .search }
             )
         } else {
-            List {
-                ForEach(model.savedSearches) { search in
-                    Button {
-                        model.openSavedSearch(search)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(search.title)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(AutoraTheme.ink)
-                            Text("Откроется на вкладке Каталог")
-                                .font(.footnote)
-                                .foregroundStyle(AutoraTheme.muted)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button("Удалить", role: .destructive) {
-                            model.deleteSavedSearch(search.id)
-                        }
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(model.savedSearches) { search in
+                        SavedSearchRow(
+                            search: search,
+                            onOpen: { model.openSavedSearch(search) },
+                            onDelete: { model.deleteSavedSearch(search.id) }
+                        )
                     }
                 }
+                .padding(.horizontal, AutoraTheme.pageGutter)
+                .padding(.bottom, 28)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
+    }
+}
+
+private struct GarageEmpty: View {
+    var title: String
+    var text: String
+    var actionTitle: String
+    var action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Image("EmptyFavorites")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 220)
+                .clipShape(RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(AutoraTheme.ink)
+            Text(text)
+                .font(.body)
+                .foregroundStyle(AutoraTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(actionTitle, action: action)
+                .font(.body.weight(.bold))
+                .foregroundStyle(AutoraTheme.canvas)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                .buttonStyle(PressableInkStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+    }
+}
+
+private struct SavedSearchRow: View {
+    let search: SavedSearch
+    var onOpen: () -> Void
+    var onDelete: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(search.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AutoraTheme.ink)
+                        .multilineTextAlignment(.leading)
+                    Text("Откроется в каталоге")
+                        .font(.footnote)
+                        .foregroundStyle(AutoraTheme.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+            Button("Удалить", role: .destructive, action: onDelete)
+                .font(.caption.weight(.semibold))
+                .frame(minHeight: 44)
+        }
+        .padding(14)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
     }
 }
 
@@ -267,7 +340,7 @@ private struct GarageFleetCard: View {
                     .font(.caption)
                     .foregroundStyle(AutoraTheme.muted)
                 Text(car.title)
-                    .font(.system(.title3, design: .serif))
+                    .font(.title3.weight(.semibold))
                 Text("Пробег: \(car.mileageKm.formatted()) км • \(car.engine)")
                     .font(.caption)
                     .foregroundStyle(AutoraTheme.muted)
@@ -369,7 +442,7 @@ private struct DeferredTrackerCard: View {
                         model.recordPhoneReveal(listingID: listing.id)
                         openURL(url)
                     } else {
-                        model.flash("Связь с продавцом: \(listing.sellerPhone)")
+                        model.flash("Связь с продавцом: \(listing.sellerPhone)", symbol: "phone.fill")
                     }
                 }
                 .font(.caption.weight(.bold))

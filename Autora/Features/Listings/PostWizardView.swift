@@ -122,7 +122,7 @@ struct PostWizardView: View {
     }
 
     private var title: String {
-        ["Фото", "VIN", "Комплектация", "AI-оценка и цена", "Город", "Описание"][step]
+        ["Фото", "VIN", "Комплектация", "Оценка и цена", "Город", "Описание"][step]
     }
 
     private var canAdvance: Bool {
@@ -313,7 +313,7 @@ struct PostWizardView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("AI-оценка CoolAV")
+                Text("Оценка CoolAV")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(AutoraTheme.muted)
                 Text("\(PriceConverter.formatUSD(Double(quote.usd)))  \(PriceConverter.formatApproxBYN(quote.byn))")

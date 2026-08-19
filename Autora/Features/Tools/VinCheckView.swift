@@ -19,8 +19,8 @@ struct VinCheckView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Проверка автомобиля по VIN")
-                        .font(.system(.title2, design: .serif))
-                    Text("История CoolAV и открытые базы ГАИ. Демо-отчёт, без парсинга чужих сайтов.")
+                        .font(.title2.weight(.semibold))
+                    Text(CoolAVCopy.vinLead)
                         .font(.footnote)
                         .foregroundStyle(AutoraTheme.muted)
 
@@ -46,10 +46,10 @@ struct VinCheckView: View {
                                 }
                             }
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AutoraTheme.canvas)
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .frame(minHeight: 44)
+                            .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                             .disabled(vin.count < 5 || searching)
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -62,10 +62,10 @@ struct VinCheckView: View {
                                         vin = sample.vin
                                         ready = false
                                     }
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 6)
-                                    .background(Color.white, in: Capsule())
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 44)
+                                    .background(AutoraTheme.canvas, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                                 }
                             }
                         }

@@ -11,4 +11,10 @@ enum ChatDraft {
     static func priceOffer(make: String, model: String, targetUSD: Int) -> String {
         "Здравствуйте! Готов купить \(make) \(model) за $\(targetUSD). Когда можно посмотреть?"
     }
+
+    static let quickReplies = [
+        "Когда можно посмотреть?",
+        "Ещё актуально?",
+        "Готов приехать сегодня."
+    ]
 }

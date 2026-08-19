@@ -38,7 +38,7 @@ struct RootTabView: View {
         .sensoryFeedback(.selection, trigger: model.selectedTab)
         .overlay(alignment: .bottom) {
             if let toast = model.toastMessage {
-                ToastBanner(text: toast)
+                ToastBanner(text: toast, symbol: model.toastSymbol)
                     .padding(.bottom, 72)
                     .padding(.horizontal, 16)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -67,22 +67,23 @@ struct RootTabView: View {
 
 struct ToastBanner: View {
     var text: String
+    var symbol: String = "checkmark"
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "bookmark.fill")
+            Image(systemName: symbol)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(AutoraTheme.canvas)
                 .frame(width: 28, height: 28)
-                .background(AutoraTheme.garageBlue, in: Circle())
+                .background(AutoraTheme.canvas.opacity(0.16), in: Circle())
             Text(text)
                 .font(.footnote.weight(.medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(AutoraTheme.canvas)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         .shadow(radius: 16, y: 8)
     }
 }

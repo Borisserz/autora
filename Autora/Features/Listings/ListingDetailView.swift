@@ -36,7 +36,7 @@ struct ListingDetailView: View {
                         if ListingTrust.showsVerifiedSeal(listing) {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.seal.fill")
-                                Text("ТОП на CoolAV")
+                                Text(CoolAVCopy.verified)
                             }
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(AutoraTheme.emerald)
@@ -125,13 +125,18 @@ struct ListingDetailView: View {
             ModelCatalogView(initialID: ListingTrust.insight(for: listing)?.id)
         }
         .onAppear { model.markViewed(listing.id) }
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(for: .seconds(PhoneClipboard.ttl))
+            copied = false
+        }
     }
 
     private var priceCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(price.primary)
-                    .font(.system(.largeTitle, design: .serif).weight(.bold))
+                    .font(.largeTitle.weight(.bold).monospacedDigit())
                     .foregroundStyle(.white)
                 Spacer(minLength: 8)
                 Text(price.secondary)
@@ -535,8 +540,9 @@ struct ListingDetailView: View {
                     model.recordPhoneReveal(listingID: listing.id)
                     copied = true
                 }
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.75))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             HStack(spacing: 16) {
                 Button("Пожаловаться") { showReport = true }

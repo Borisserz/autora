@@ -260,8 +260,8 @@ struct FiltersSheet: View {
     private func filterChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
             .font(.subheadline)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
             .foregroundStyle(selected ? AutoraTheme.canvas : AutoraTheme.ink)
             .background(selected ? AutoraTheme.ink : Color.clear)
             .overlay {

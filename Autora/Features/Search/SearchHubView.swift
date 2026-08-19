@@ -23,7 +23,11 @@ struct SearchHubView: View {
                             onVIN: { showVIN = true },
                             onValuation: { showValuation = true },
                             onGarage: { model.selectedTab = .favorites },
-                            garageCount: model.favoriteIDs.count + model.deferredPurchases.count,
+                            garageCount: GarageOverview.carTotal(
+                                favorites: model.favoriteIDs.count,
+                                deferred: model.deferredPurchases.count,
+                                fleet: model.ownedGarage.count
+                            ),
                             onShowCatalog: {
                                 withAnimation(AutoraMotion.press) {
                                     proxy.scrollTo("catalog", anchor: .top)
@@ -33,6 +37,7 @@ struct SearchHubView: View {
                             onSaveSearch: {
                                 model.saveCurrentSearch()
                                 savedFlash = true
+                                model.flash("Поиск сохранён", symbol: "magnifyingglass")
                             },
                             savedFlash: savedFlash
                         )
@@ -92,8 +97,12 @@ struct SearchHubView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { id in
                 if let listing = model.listing(id: id) {
-                    ListingDetailView(listing: listing)
-                        .navigationTransition(.zoom(sourceID: id, in: catalog))
+                    if reduceMotion {
+                        ListingDetailView(listing: listing)
+                    } else {
+                        ListingDetailView(listing: listing)
+                            .navigationTransition(.zoom(sourceID: id, in: catalog))
+                    }
                 }
             }
             .sheet(isPresented: $showFilters) {
@@ -121,6 +130,13 @@ struct SearchHubView: View {
             .onAppear(perform: consumePendingLink)
             .onChange(of: model.pendingListingID) { _, _ in
                 consumePendingLink()
+            }
+            .onChange(of: savedFlash) { _, on in
+                guard on else { return }
+                Task {
+                    try? await Task.sleep(for: .seconds(2.4))
+                    if savedFlash { savedFlash = false }
+                }
             }
         }
     }
@@ -176,7 +192,7 @@ struct SearchHubView: View {
                                 if let url = listing.photoURLs.first {
                                     AutoraRemotePhoto(urlString: url, height: 96)
                                         .frame(width: 148, height: 96)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                 }
                                 Text(listing.title)
                                     .font(.footnote.weight(.semibold))
@@ -202,19 +218,21 @@ struct SearchHubView: View {
     private var compareBar: some View {
         HStack {
             Text("\(model.compareIDs.count) в сравнении")
-                .font(.caption)
-                .foregroundStyle(AutoraTheme.muted)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AutoraTheme.ink)
             Spacer()
             Button("Сравнить") { showCompare = true }
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(AutoraTheme.ink, in: Capsule())
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AutoraTheme.canvas)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .buttonStyle(PressableInkStyle())
         }
+        .frame(minHeight: 44)
         .padding(.horizontal, AutoraTheme.pageGutter)
-        .padding(.vertical, 12)
-        .background(AutoraTheme.canvas.opacity(0.96))
+        .padding(.vertical, 8)
+        .background(AutoraTheme.canvas)
     }
 }
 
@@ -241,7 +259,7 @@ private struct HubHero: View {
                 .background(.black.opacity(0.5), in: Capsule())
                 .frame(maxWidth: .infinity)
             Text(CoolAVCopy.heroTitle)
-                .font(.system(.title3, design: .serif))
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .shadow(color: .black.opacity(0.45), radius: 8)
@@ -372,7 +390,7 @@ private struct HubSearchWidget: View {
                     .accessibilityIdentifier(AutoraID.searchField)
             }
             .padding(12)
-            .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 makeMenu
@@ -389,40 +407,42 @@ private struct HubSearchWidget: View {
                 }
             }
 
-            HStack {
+            HStack(alignment: .center, spacing: 8) {
                 Button(action: onOpenFilters) {
                     Label(
                         model.criteria.activeFilterCount > 0
                             ? "Фильтры \(model.criteria.activeFilterCount)"
-                            : "Расширенные фильтры",
+                            : "Фильтры",
                         systemImage: "slider.horizontal.3"
                     )
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AutoraTheme.ink)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(minHeight: 44)
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                 }
                 .accessibilityIdentifier(AutoraID.filters)
                 .buttonStyle(PressableInkStyle())
                 if model.criteria.activeFilterCount > 0 {
                     Button("Сбросить", action: resetFilters)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AutoraTheme.bargainRed)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AutoraTheme.ink)
+                        .frame(minHeight: 44)
                 }
-                Spacer()
-                Button("Сохранить поиск", action: onSaveSearch)
-                    .font(.caption.weight(.semibold))
+                Spacer(minLength: 0)
+                Button("Сохранить", action: onSaveSearch)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
                     .accessibilityIdentifier(AutoraID.saveSearch)
             }
 
             Button(action: onShowCatalog) {
                 Label("Показать \(carWord(model.filtered.count))", systemImage: "magnifyingglass")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AutoraTheme.canvas)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 44)
-                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
             .buttonStyle(PressableInkStyle())
 
@@ -432,9 +452,9 @@ private struct HubSearchWidget: View {
                     .foregroundStyle(AutoraTheme.muted)
             }
         }
-        .padding(12)
-        .background(.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.28), radius: 16, y: 8)
+            .padding(12)
+            .background(AutoraTheme.canvas.opacity(0.96), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .shadow(color: .black.opacity(0.22), radius: 8, y: 4)
     }
 
     private var makeMenu: some View {
@@ -570,8 +590,8 @@ private struct HubFilterValue: View {
                 .foregroundStyle(AutoraTheme.muted)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .frame(minHeight: 44)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 
@@ -613,12 +633,12 @@ private struct HubCatalogHeader: View {
                             model.sort = option
                         }
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(on ? .white : AutoraTheme.ink)
+                        .foregroundStyle(on ? AutoraTheme.canvas : AutoraTheme.ink)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
+                        .frame(minHeight: 44)
                         .background(
                             on ? AutoraTheme.ink : AutoraTheme.canvas,
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: AutoraTheme.chipRadius, style: .continuous)
                         )
                         .buttonStyle(PressableInkStyle())
                     }
@@ -645,10 +665,10 @@ private struct CategoryChip: View {
         } label: {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(on && tab == .warranty ? AutoraTheme.ink : (on ? .white : AutoraTheme.ink))
+                .foregroundStyle(on && tab == .warranty ? AutoraTheme.ink : (on ? AutoraTheme.canvas : AutoraTheme.ink))
                 .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .frame(minHeight: 44)
+                .background(fill, in: RoundedRectangle(cornerRadius: AutoraTheme.chipRadius, style: .continuous))
         }
         .buttonStyle(PressableInkStyle())
     }
@@ -817,7 +837,10 @@ private struct TargetDropStrip: View {
                 Text("Цена к вашей цели")
                     .font(.subheadline.weight(.bold))
                 Spacer()
-                Button("Гараж") { model.selectedTab = .favorites }
+                Button("Гараж") {
+                    model.garageTab = .deferred
+                    model.selectedTab = .favorites
+                }
                     .font(.caption.weight(.semibold))
                     .frame(minHeight: 44)
             }

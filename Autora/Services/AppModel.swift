@@ -18,6 +18,18 @@ final class AppModel {
     var sort: ListingSort = .newest {
         didSet { persistIfReady { persistSort() } }
     }
+    var garageTab: GarageTab = .favorites {
+        didSet { persistIfReady { defaults.set(garageTab.rawValue, forKey: Keys.garageTab) } }
+    }
+    var sellerDeskTab: SellerDeskTab = .all {
+        didSet { persistIfReady { defaults.set(sellerDeskTab.rawValue, forKey: Keys.sellerDeskTab) } }
+    }
+    var inboxTab: InboxTab = .all {
+        didSet { persistIfReady { defaults.set(inboxTab.rawValue, forKey: Keys.inboxTab) } }
+    }
+    var deletedChatIDs: Set<String> = [] {
+        didSet { persistIfReady { defaults.set(Array(deletedChatIDs), forKey: Keys.deletedChats) } }
+    }
     var editingListingID: String? {
         didSet { persistIfReady { persistEditingID() } }
     }
@@ -38,6 +50,7 @@ final class AppModel {
         didSet { persistIfReady { persistOwnedGarage() } }
     }
     var toastMessage: String?
+    var toastSymbol = "checkmark"
     var recentlyViewedIDs: [String] = []
     var compareIDs: [String] = [] {
         didSet { persistIfReady { defaults.set(compareIDs, forKey: Keys.compare) } }
@@ -124,9 +137,14 @@ final class AppModel {
         chats = storedChats.isEmpty
             ? loaded.chats
             : CatalogMerge.chats(seed: loaded.chats, live: storedChats)
+        deletedChatIDs = Set(defaults.stringArray(forKey: Keys.deletedChats) ?? [])
+        chats.removeAll { deletedChatIDs.contains($0.id) }
         listingDraft = loadDraft()
         criteria = loadCriteria()
         sort = loadSort()
+        garageTab = GarageTab(rawValue: defaults.integer(forKey: Keys.garageTab)) ?? .favorites
+        sellerDeskTab = SellerDeskTab(rawValue: defaults.integer(forKey: Keys.sellerDeskTab)) ?? .all
+        inboxTab = InboxTab(rawValue: defaults.integer(forKey: Keys.inboxTab)) ?? .all
         editingListingID = defaults.string(forKey: Keys.editingListing)
         isHydrating = false
     }
@@ -144,6 +162,7 @@ final class AppModel {
     func applyCatalog(_ file: SeedFile) {
         listings = CatalogMerge.listings(seed: file.listings, mine: myListings)
         chats = CatalogMerge.chats(seed: file.chats, live: chats)
+        chats.removeAll { deletedChatIDs.contains($0.id) }
         fx = file.fx
         savedSearches = mergeSearches(seed: file.savedSearches, stored: loadPersistedSearches())
         loadError = nil
@@ -154,15 +173,74 @@ final class AppModel {
         listings.first { $0.id == id } ?? myListings.first { $0.id == id }
     }
 
+    func garageCount(for tab: GarageTab) -> Int {
+        GarageOverview.count(
+            tab,
+            favoriteIDs: favoriteIDs,
+            listings: listings,
+            deferred: deferredPurchases,
+            fleet: ownedGarage.count,
+            searches: savedSearches.count
+        )
+    }
+
+    var garageHeadline: String {
+        GarageOverview.headline(
+            drops: DeferredWatch.dropped(
+                in: listings,
+                purchases: deferredPurchases,
+                usdBYN: fx.usdBYN
+            ).count,
+            favorites: garageCount(for: .favorites),
+            fleet: ownedGarage.count
+        )
+    }
+
+    var sellerHeadline: String {
+        let stats = SellerStats.from(myListings)
+        let now = now()
+        return SellerDesk.headline(
+            stats: stats,
+            bumpReady: SellerDesk.bumpReady(in: myListings, now: now).count,
+            active: SellerDesk.count(.active, in: myListings)
+        )
+    }
+
+    var inboxHeadline: String {
+        InboxDesk.headline(unread: unreadCount, threads: chats.count)
+    }
+
+    var profileSnapshot: ProfileSnapshot {
+        ProfileDesk.snapshot(
+            session: session,
+            listings: myListings.count,
+            garage: GarageOverview.carTotal(
+                favorites: favoriteIDs.count,
+                deferred: deferredPurchases.count,
+                fleet: ownedGarage.count
+            ),
+            unread: unreadCount,
+            compare: compareIDs.count,
+            viewed: recentlyViewedIDs.count,
+            blocked: blockedSellerIDs.count,
+            reports: reports.count,
+            usdBYN: fx.usdBYN
+        )
+    }
+
+    var profileHeadline: String {
+        ProfileDesk.headline(profileSnapshot)
+    }
+
     func toggleFavorite(_ id: String) {
         if favoriteIDs.contains(id) {
             favoriteIDs.remove(id)
             mutateListing(id) { $0.favoritesCount = max(0, $0.favoritesCount - 1) }
-            flash("Авто удалено из Избранного")
+            flash("Авто удалено из Избранного", symbol: "heart")
         } else {
             favoriteIDs.insert(id)
             mutateListing(id) { $0.favoritesCount += 1 }
-            flash("Автомобиль добавлен в Избранное")
+            flash("Автомобиль добавлен в Избранное", symbol: "heart.fill")
         }
     }
 
@@ -177,10 +255,10 @@ final class AppModel {
     func toggleDeferred(_ id: String) {
         if let idx = deferredPurchases.firstIndex(where: { $0.id == id }) {
             deferredPurchases.remove(at: idx)
-            flash("Удалено из отложенных покупок")
+            flash("Удалено из отложенных покупок", symbol: "bookmark")
         } else if let listing = listing(id: id) {
             deferredPurchases.insert(DeferredPurchase.capturing(listing, now: now(), usdBYN: fx.usdBYN), at: 0)
-            flash("«\(listing.title)» добавлен в Отложенные покупки")
+            flash("«\(listing.title)» добавлен в Отложенные покупки", symbol: "bookmark.fill")
         }
     }
 
@@ -194,7 +272,8 @@ final class AppModel {
         deferredPurchases[idx].targetPriceUSD = max(0, usd)
     }
 
-    func flash(_ message: String) {
+    func flash(_ message: String, symbol: String = "checkmark") {
+        toastSymbol = symbol
         toastMessage = message
     }
 
@@ -231,6 +310,12 @@ final class AppModel {
                 $0.sellerPhone = BelarusPhone.e164(phone)
             }
         }
+        flash("Профиль сохранён", symbol: "person.fill")
+    }
+
+    func clearRecentlyViewed() {
+        recentlyViewedIDs = []
+        defaults.set(recentlyViewedIDs, forKey: Keys.recent)
     }
 
     func toggleCompare(_ id: String) {
@@ -253,12 +338,12 @@ final class AppModel {
     func addOwned(_ car: OwnedGarageCar) {
         guard !ownedGarage.contains(where: { $0.id == car.id }) else { return }
         ownedGarage.append(car)
-        flash("Авто добавлено в автопарк")
+        flash("Авто добавлено в автопарк", symbol: "car.fill")
     }
 
     func removeOwned(_ id: String) {
         ownedGarage.removeAll { $0.id == id }
-        flash("Авто удалено из автопарка")
+        flash("Авто удалено из автопарка", symbol: "car")
     }
 
     @discardableResult
@@ -321,6 +406,16 @@ final class AppModel {
         }
     }
 
+    func bumpAllReady(at: Date = .now) {
+        let ids = SellerDesk.bumpReady(in: myListings, now: at.timeIntervalSince1970).map(\.id)
+        for id in ids {
+            bump(id, at: at)
+        }
+        if !ids.isEmpty {
+            flash("Поднято объявлений: \(ids.count)", symbol: "arrow.up")
+        }
+    }
+
     func publishDraft(_ listing: Listing) throws {
         guard case .signedIn(let profile) = session else { throw AppError.needAuth }
         guard !profile.phone.isEmpty else { throw AppError.needPhone }
@@ -350,6 +445,14 @@ final class AppModel {
         guard let listing = listing(id: id) else { return }
         listingDraft = ListingDraft.from(listing)
         editingListingID = id
+        pendingOpenWizard = true
+        selectedTab = .listings
+    }
+
+    func duplicateAsDraft(_ id: String) {
+        guard let listing = listing(id: id) else { return }
+        listingDraft = ListingDraft.from(listing)
+        editingListingID = nil
         pendingOpenWizard = true
         selectedTab = .listings
     }
@@ -409,7 +512,7 @@ final class AppModel {
         favoriteIDs.remove(id)
         compareIDs.removeAll { $0 == id }
         deferredPurchases.removeAll { $0.id == id }
-        flash("Объявление удалено")
+        flash("Объявление удалено", symbol: "trash")
     }
 
     func sendMessage(threadID: String, text: String) {
@@ -429,6 +532,18 @@ final class AppModel {
     func markThreadRead(_ id: String) {
         guard let idx = chats.firstIndex(where: { $0.id == id }) else { return }
         chats[idx].unread = 0
+    }
+
+    func markAllRead() {
+        var copy = chats
+        for i in copy.indices { copy[i].unread = 0 }
+        chats = copy
+    }
+
+    func deleteThread(_ id: String) {
+        chats.removeAll { $0.id == id }
+        deletedChatIDs.insert(id)
+        flash("Переписка удалена", symbol: "envelope")
     }
 
     func startChat(for listing: Listing) throws -> String {
@@ -639,6 +754,10 @@ final class AppModel {
         static let draft = "autora.draft"
         static let criteria = "autora.criteria"
         static let sort = "autora.sort"
+        static let garageTab = "autora.garageTab"
+        static let sellerDeskTab = "autora.sellerDeskTab"
+        static let inboxTab = "autora.inboxTab"
+        static let deletedChats = "autora.deletedChats"
         static let editingListing = "autora.editingListing"
     }
 }

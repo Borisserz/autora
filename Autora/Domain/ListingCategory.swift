@@ -71,22 +71,21 @@ enum ListingCategoryTab: String, CaseIterable, Identifiable, Sendable, Codable, 
 enum CoolAVCopy {
     static let brand = "CoolAV"
     static let wordmark = "CoolAV.by"
-    static let heroBadge = "Автомобильный портал нового поколения с AI-аналитикой"
-    static let heroTitle = "Умная покупка, продажа и аналитика авто в Беларуси"
-    static let heroSubtitle = "Сравнивайте реальные цены, откладывайте машины в персональный гараж с трекингом скидок, сопоставляйте авто лоб в лоб и проверяйте историю по VIN."
-    static let searchPlaceholder = "Быстрый поиск по марке, модели, кузову, городу или опциям..."
-    static let catalogEyebrow = "Объявления с проверкой"
-    static let catalogTitle = "Проверенные автомобили с аналитикой цен"
-    static let verified = "Проверено CoolAV"
-    static let liveMarket = "LIVE рынок РБ"
+    static let heroBadge = "Легковые в Беларуси"
+    static let heroTitle = "Покупка и продажа. Цена в данных — Br."
+    static let heroSubtitle = "Сравнивайте лоты, держите цель в гараже, проверяйте VIN демо-сверкой CoolAV."
+    static let searchPlaceholder = "Марка, модель, кузов, город или опции"
+    static let catalogEyebrow = "Каталог CoolAV"
+    static let catalogTitle = "Объявления с ценой в Br и курсом $ на экране"
+    static let verified = "ТОП CoolAV"
+    static let liveMarket = "CoolAV"
+    static let vinLead = "Демо-сверка CoolAV. Не база ГАИ и не отчёт чужого сайта."
     static let ticker: [String] = [
-        "Geely Monjaro 2023: -$2,700 ниже рынка (Минск)",
-        "Средний чек в августе: $24,800",
-        "Tesla Model 3 LR: без утильсбора и налога на роскошь",
-        "Проверено по базам ГАИ за сегодня: +1,420 авто",
-        "Свежий пригон из Мюнхена: BMW 520d G30 M-Sport",
-        "Средний срок продажи проверенных авто: 12 дней",
-        "Li Auto L7 Pro: выгода до $3,700 при покупке онлайн",
-        "Volkswagen Tiguan II: ТОП-1 по ликвидности в Беларуси"
+        "Цена в данных — Br. На экране $ крупно, Br рядом.",
+        "Гараж: избранное, цена к цели, автопарк и поиски.",
+        "Сравнение — два лота: цена, пробег, срок продажи.",
+        "VIN в CoolAV — демо-сверка, не база ГАИ.",
+        "Подача: свои фото и полный телефон в профиле.",
+        "Скрытый продавец пропадает из ленты, не из каталога продавца."
     ]
 }

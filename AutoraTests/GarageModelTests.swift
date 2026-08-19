@@ -25,6 +25,45 @@ struct GarageModelTests {
         #expect(!reloaded.isDeferred("lst-g"))
     }
 
+    @Test func garageTabCountsAndHeadline() {
+        let listing = listingFixture(id: "lst-g")
+        #expect(
+            GarageOverview.count(
+                .favorites,
+                favoriteIDs: ["lst-g"],
+                listings: [listing],
+                deferred: [],
+                fleet: 2,
+                searches: 0
+            ) == 1
+        )
+        #expect(
+            GarageOverview.count(
+                .deferred,
+                favoriteIDs: [],
+                listings: [listing],
+                deferred: [DeferredPurchase(id: "lst-g", originalPriceBYN: 100, targetPriceUSD: 90, userNote: "", savedAt: 1)],
+                fleet: 0,
+                searches: 3
+            ) == 1
+        )
+        #expect(GarageOverview.headline(drops: 1, favorites: 2, fleet: 2) == "1 к цели · 2 в избранном · 2 своих")
+        #expect(GarageOverview.headline(drops: 0, favorites: 0, fleet: 0).contains("Пусто"))
+        #expect(GarageTab.allCases.map(\.title) == ["Избранное", "Отложенные", "Автопарк", "Поиски"])
+        #expect(GarageOverview.carTotal(favorites: 2, deferred: 1, fleet: 3) == 6)
+    }
+
+    @Test func garageTabSurvivesReload() {
+        let app = model(listings: [])
+        app.garageTab = .fleet
+        let reloaded = AppModel(
+            seed: SeedFile(listings: [], chats: [], savedSearches: [], fx: FXRate(usdBYN: 2.99)),
+            defaults: app.defaults,
+            now: { 1_000_000 }
+        )
+        #expect(reloaded.garageTab == .fleet)
+    }
+
     @Test func ownedGarageSeedsDemoFleetWhenEmpty() {
         let app = model(listings: [])
         #expect(app.ownedGarage.count >= 1)

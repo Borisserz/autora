@@ -3,20 +3,20 @@ import UIKit
 
 enum AutoraTheme {
     static let canvas = Color(
-        light: Color(red: 1, green: 1, blue: 1),
-        dark: Color(red: 25 / 255, green: 25 / 255, blue: 25 / 255)
+        light: UIColor(red: 1, green: 1, blue: 1, alpha: 1),
+        dark: UIColor(red: 25 / 255, green: 25 / 255, blue: 25 / 255, alpha: 1)
     )
     static let surface = Color(
-        light: Color(red: 244 / 255, green: 243 / 255, blue: 243 / 255),
-        dark: Color(red: 20 / 255, green: 20 / 255, blue: 22 / 255)
+        light: UIColor(red: 244 / 255, green: 243 / 255, blue: 243 / 255, alpha: 1),
+        dark: UIColor(red: 20 / 255, green: 20 / 255, blue: 22 / 255, alpha: 1)
     )
     static let ink = Color(
-        light: Color(red: 25 / 255, green: 25 / 255, blue: 25 / 255),
-        dark: Color(red: 1, green: 1, blue: 1)
+        light: UIColor(red: 25 / 255, green: 25 / 255, blue: 25 / 255, alpha: 1),
+        dark: UIColor(red: 1, green: 1, blue: 1, alpha: 1)
     )
     static let muted = Color(
-        light: Color(red: 107 / 255, green: 114 / 255, blue: 128 / 255),
-        dark: Color(red: 156 / 255, green: 163 / 255, blue: 175 / 255)
+        light: UIColor(red: 107 / 255, green: 114 / 255, blue: 128 / 255, alpha: 1),
+        dark: UIColor(red: 156 / 255, green: 163 / 255, blue: 175 / 255, alpha: 1)
     )
     static let accent = ink
     static let price = ink
@@ -28,12 +28,12 @@ enum AutoraTheme {
     static let premiumPurple = Color(red: 88 / 255, green: 28 / 255, blue: 135 / 255)
     static let badgeTop = bargainRed
     static let danger = Color(
-        light: Color(red: 220 / 255, green: 38 / 255, blue: 38 / 255),
-        dark: Color(red: 248 / 255, green: 113 / 255, blue: 113 / 255)
+        light: UIColor(red: 220 / 255, green: 38 / 255, blue: 38 / 255, alpha: 1),
+        dark: UIColor(red: 248 / 255, green: 113 / 255, blue: 113 / 255, alpha: 1)
     )
     static let hairline = Color(
-        light: Color(red: 25 / 255, green: 25 / 255, blue: 25 / 255).opacity(0.08),
-        dark: Color.white.opacity(0.12)
+        light: UIColor(red: 25 / 255, green: 25 / 255, blue: 25 / 255, alpha: 0.08),
+        dark: UIColor(white: 1, alpha: 0.12)
     )
     static let glass = Color.black.opacity(0.65)
     static let detailCanvas = Color(red: 20 / 255, green: 20 / 255, blue: 22 / 255)
@@ -46,10 +46,10 @@ enum AutoraTheme {
 }
 
 extension Color {
-    init(light: Color, dark: Color) {
+    nonisolated init(light: UIColor, dark: UIColor) {
         self.init(
             uiColor: UIColor { traits in
-                traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+                traits.userInterfaceStyle == .dark ? dark : light
             }
         )
     }

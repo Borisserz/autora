@@ -2,6 +2,15 @@ import Foundation
 
 enum ListingStatus: String, Codable, Equatable, Sendable {
     case active, sold, draft, inactive
+
+    var title: String {
+        switch self {
+        case .active: "В ленте"
+        case .sold: "Продано"
+        case .inactive: "Снято"
+        case .draft: "Черновик"
+        }
+    }
 }
 
 enum ListingCondition: String, Codable, Equatable, Sendable, CaseIterable {

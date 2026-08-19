@@ -32,7 +32,7 @@ struct EmptyStateView: View {
                     .accessibilityHidden(true)
             }
             Text(title)
-                .font(.system(.title2, design: .serif).weight(.semibold))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(AutoraTheme.ink)
             Text(text)
                 .font(.body)
@@ -41,10 +41,9 @@ struct EmptyStateView: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .font(.body.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .foregroundStyle(AutoraTheme.canvas)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
                     .buttonStyle(PressableInkStyle())
             }
             Spacer()

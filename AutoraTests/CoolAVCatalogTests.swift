@@ -69,6 +69,20 @@ struct CoolAVCopyTests {
         }
     }
 
+    @Test func tickerAndHeroDoNotInventLiveMarket() {
+        for line in CoolAVCopy.ticker {
+            let lower = line.lowercased()
+            #expect(!line.contains("базам ГАИ"))
+            #expect(!line.contains("открытые базы"))
+            #expect(!lower.contains("средний чек"))
+            #expect(!lower.contains("сегодня"))
+        }
+        #expect(!CoolAVCopy.heroBadge.lowercased().contains("нового поколения"))
+        #expect(!CoolAVCopy.heroTitle.lowercased().contains("ai-аналитик"))
+        #expect(CoolAVCopy.vinLead.contains("Демо"))
+        #expect(!CoolAVCopy.vinLead.contains("открытые базы ГАИ"))
+    }
+
     @Test func categoryChipTitlesMatchSite() {
         #expect(ListingCategoryTab.bargain.chipTitle.contains("-10%"))
         #expect(ListingCategoryTab.ev.chipTitle == "Электромобили")
