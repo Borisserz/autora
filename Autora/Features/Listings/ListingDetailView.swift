@@ -14,6 +14,7 @@ struct ListingDetailView: View {
     @State private var showVIN = false
     @State private var downPercent = 30
     @State private var leaseYears = 3
+    @State private var showModelCatalog = false
 
     private var usd: Double {
         PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)
@@ -31,7 +32,7 @@ struct ListingDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 StretchyCatalogPhoto(urls: listing.photoURLs, title: listing.title)
-                    .overlay(alignment: .bottomLeading) {
+                    .overlay(alignment: .topLeading) {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.seal.fill")
                             Text("Проверено CoolAV • Юр. чистота")
@@ -49,6 +50,8 @@ struct ListingDetailView: View {
                     actionTrio
                     leaseCard
                     specGrid
+                    insightCard
+                    equipmentBlock
                     if !listing.description.isEmpty {
                         descriptionBlock
                     }
@@ -104,7 +107,13 @@ struct ListingDetailView: View {
             Text(chatError ?? "")
         }
         .sheet(isPresented: $showVIN) {
-            VinCheckView()
+            VinCheckView(initialVin: listing.vin ?? "X7LLG1234PA987654")
+        }
+        .sheet(isPresented: $showModelCatalog) {
+            let id = ModelInsight.lookup(make: listing.make, model: listing.model).id
+            ModelCatalogView(
+                initialID: ModelInsight.catalog.contains(where: { $0.id == id }) ? id : nil
+            )
         }
         .onAppear { model.markViewed(listing.id) }
     }
@@ -119,6 +128,11 @@ struct ListingDetailView: View {
                 Text(price.secondary)
                     .font(.footnote.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.7))
+            }
+            if let percent = MarketDeal.discountPercent(for: listing, in: model.listings) {
+                Text("−\(percent)% ниже рынка РБ")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AutoraTheme.emerald)
             }
             HStack(spacing: 8) {
                 if let badge = MarketPrice.badge(for: listing, in: model.listings) {
@@ -179,7 +193,7 @@ struct ListingDetailView: View {
                     model.recordPhoneReveal(listingID: listing.id)
                     openURL(url)
                 } label: {
-                    Label("Позвонить: \(listing.sellerPhone)", systemImage: "phone.fill")
+                    Label("Позвонить: \(BelarusPhone.display(listing.sellerPhone))", systemImage: "phone.fill")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
@@ -345,11 +359,98 @@ struct ListingDetailView: View {
         .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
+    private var equipmentBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Комплектация")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(ListingSpecs.equipment, id: \.self) { item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(AutoraTheme.emerald)
+                        Text(item)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.88))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var insightCard: some View {
+        let insight = ModelInsight.lookup(make: listing.make, model: listing.model)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(insight.tag)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AutoraTheme.amber)
+                Spacer()
+                Text(String(format: "%.1f / 10", insight.overall))
+                    .font(.title3.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.white)
+            }
+            Text("Содержание ~$\(insight.monthlyUSD) в месяц")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.78))
+            scoreBar("Запчасти в РБ", insight.parts)
+            scoreBar("Комфорт", insight.comfort)
+            scoreBar("Надёжность", insight.reliability)
+            if let pro = insight.pros.first {
+                Text("Плюс: \(pro)")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !insight.weakSpots.isEmpty {
+                Text("Слабые места: \(insight.weakSpots)")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button("Плюсы, минусы и каталог моделей") {
+                showModelCatalog = true
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(AutoraTheme.emerald, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func scoreBar(_ title: String, _ value: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+                Spacer()
+                Text(String(format: "%.1f", value))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.white)
+            }
+            ProgressView(value: value, total: 10)
+                .tint(AutoraTheme.emerald)
+        }
+    }
+
     private var specItems: [(String, String)] {
         var items: [(String, String)] = [
             ("Год", "\(listing.year) г."),
             ("Пробег", "\(listing.mileageKm.formatted()) км"),
-            ("Двигатель", "\(listing.engineLiters) л · \(listing.powerHp) л.с."),
+            ("Двигатель", ListingSpecs.engineLine(listing)),
+            ("Разгон 0–100", String(format: "%.1f сек", ListingSpecs.acceleration0100(listing))),
             ("КПП", listing.transmission),
             ("Привод", listing.drivetrain),
             ("Топливо", listing.fuel),
@@ -405,7 +506,7 @@ struct ListingDetailView: View {
     private var quietActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !isOwn, !listing.sellerPhone.isEmpty {
-                Button(copied ? "Скопировано на 60 с" : "Скопировать \(listing.sellerPhone)") {
+                Button(copied ? "Скопировано на 60 с" : "Скопировать \(BelarusPhone.display(listing.sellerPhone))") {
                     PhoneClipboard.copy(listing.sellerPhone)
                     model.recordPhoneReveal(listingID: listing.id)
                     copied = true

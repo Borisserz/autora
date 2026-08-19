@@ -36,6 +36,21 @@ struct ListingDraft: Equatable, Codable, Sendable {
         return draft
     }
 
+    func suggestedQuote(usdBYN: Double, nowYear: Int = 2026) -> MarketValuation.Quote {
+        MarketValuation.quote(
+            make: make,
+            year: year,
+            mileageKm: mileageKm,
+            condition: .good,
+            usdBYN: usdBYN,
+            nowYear: nowYear
+        )
+    }
+
+    mutating func applySuggestedPrice(usdBYN: Double, nowYear: Int = 2026) {
+        priceBYN = suggestedQuote(usdBYN: usdBYN, nowYear: nowYear).byn
+    }
+
     func canLeave(step: Int) -> Bool {
         switch step {
         case 0: !photoURLs.isEmpty

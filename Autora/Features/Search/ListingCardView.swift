@@ -28,7 +28,14 @@ struct ListingCardView: View {
                         .font(.caption)
                         .foregroundStyle(AutoraTheme.muted)
                     Spacer(minLength: 8)
-                    if let badge = MarketPrice.badge(for: listing, in: model.listings), badge == "ниже рынка" {
+                    if let percent = MarketDeal.discountPercent(for: listing, in: model.listings) {
+                        Text("−\(percent)% ниже рынка")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(AutoraTheme.emerald.opacity(0.18), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    } else if let badge = MarketPrice.badge(for: listing, in: model.listings), badge == "ниже рынка" {
                         Text("ниже рынка")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
@@ -138,7 +145,7 @@ struct ListingCardView: View {
         let items: [(String, String)] = [
             ("calendar", "\(listing.year) г."),
             ("gauge", "\(listing.mileageKm.formatted()) км"),
-            ("fuelpump", listing.fuel),
+            ("fuelpump", ListingSpecs.engineLine(listing)),
             ("mappin.and.ellipse", "г. \(listing.city)")
         ]
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {

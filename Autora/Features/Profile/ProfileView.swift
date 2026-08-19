@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var showVIN = false
     @State private var showValuation = false
     @State private var showCompare = false
+    @State private var showCatalog = false
 
     var body: some View {
         NavigationStack {
@@ -20,6 +21,7 @@ struct ProfileView: View {
                     toolButton("Проверка VIN", systemImage: "checkmark.shield.fill") { showVIN = true }
                     toolButton("AI Сравнение", systemImage: "scalemass.fill") { showCompare = true }
                     toolButton("Оценка авто", systemImage: "chart.line.uptrend.xyaxis") { showValuation = true }
+                    toolButton("Каталог моделей", systemImage: "square.grid.2x2.fill") { showCatalog = true }
 
                     Rectangle().fill(AutoraTheme.hairline).frame(height: 1)
                     if case .signedIn(let profile) = model.session {
@@ -32,6 +34,10 @@ struct ProfileView: View {
                             .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         TextField("Телефон", text: $phone)
                             .keyboardType(.phonePad)
+                            .onChange(of: phone) { _, value in
+                                let formatted = BelarusPhone.display(value)
+                                if formatted != value { phone = formatted }
+                            }
                             .padding(12)
                             .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         Button("Сохранить") {
@@ -73,6 +79,7 @@ struct ProfileView: View {
             .sheet(isPresented: $showCompare) {
                 NavigationStack { CompareView() }
             }
+            .sheet(isPresented: $showCatalog) { ModelCatalogView() }
         }
     }
 

@@ -38,9 +38,7 @@ struct PostWizardView: View {
                             specStep
                         }
                     case 3:
-                        TextField("Цена, Br", value: $model.listingDraft.priceBYN, format: .number)
-                            .keyboardType(.numberPad)
-                            .font(.body.monospacedDigit())
+                        priceStep
                     case 4: cityStep
                     default:
                         TextField("Описание", text: $model.listingDraft.description, axis: .vertical)
@@ -113,7 +111,7 @@ struct PostWizardView: View {
     }
 
     private var title: String {
-        ["Фото", "VIN", "Комплектация", "Цена", "Город", "Описание"][step]
+        ["Фото", "VIN", "Комплектация", "AI-оценка и цена", "Город", "Описание"][step]
     }
 
     private var canAdvance: Bool {
@@ -229,6 +227,42 @@ struct PostWizardView: View {
             get: { model.listingDraft.wheel == .right ? "правый" : "левый" },
             set: { model.listingDraft.wheel = $0 == "правый" ? .right : .left }
         )
+    }
+
+    private var priceStep: some View {
+        @Bindable var model = model
+        let quote = model.listingDraft.suggestedQuote(usdBYN: model.fx.usdBYN)
+        let live = PriceDisplay.pair(byn: model.listingDraft.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+        return VStack(alignment: .leading, spacing: 14) {
+            TextField("Цена, Br", value: $model.listingDraft.priceBYN, format: .number)
+                .keyboardType(.numberPad)
+                .font(.title2.monospacedDigit().weight(.semibold))
+            if model.listingDraft.priceBYN > 0 {
+                Text("\(live.primary)  \(live.secondary)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AutoraTheme.ink)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("AI-оценка CoolAV")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AutoraTheme.muted)
+                Text("\(PriceConverter.formatUSD(Double(quote.usd)))  \(PriceConverter.formatApproxBYN(quote.byn))")
+                    .font(.body.weight(.semibold))
+                Text("Диапазон \(PriceConverter.formatUSD(Double(quote.minUSD)))–\(PriceConverter.formatUSD(Double(quote.maxUSD))) · продажа ~\(quote.days) дн.")
+                    .font(.caption)
+                    .foregroundStyle(AutoraTheme.muted)
+                Button("Подставить оценку") {
+                    model.listingDraft.applySuggestedPrice(usdBYN: model.fx.usdBYN)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .padding(12)
+            .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
     }
 
     private var cityStep: some View {

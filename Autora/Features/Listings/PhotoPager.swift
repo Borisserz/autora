@@ -22,18 +22,25 @@ struct PhotoPager: View {
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: height)
         .background(AutoraTheme.ink)
-        .overlay(alignment: .bottomTrailing) {
-            if urls.count > 1 {
-                Text("\(page + 1) / \(urls.count)")
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(AutoraTheme.canvas)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(AutoraTheme.ink.opacity(0.62))
-                    .padding(12)
-                    .contentTransition(.numericText())
-                    .animation(AutoraMotion.press, value: page)
-                    .accessibilityLabel("Фото \(page + 1) из \(urls.count)")
+        .overlay(alignment: .bottom) {
+            if !urls.isEmpty {
+                HStack {
+                    Text(PhotoGallery.caption(index: page, count: urls.count))
+                        .font(.caption.weight(.semibold))
+                    Spacer(minLength: 8)
+                    if urls.count > 1 {
+                        Text("\(page + 1) / \(urls.count)")
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .contentTransition(.numericText())
+                            .animation(AutoraMotion.press, value: page)
+                    }
+                }
+                .foregroundStyle(AutoraTheme.canvas)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(AutoraTheme.ink.opacity(0.62), in: Capsule())
+                .padding(12)
+                .accessibilityLabel("\(PhotoGallery.caption(index: page, count: urls.count)), фото \(page + 1) из \(urls.count)")
             }
         }
     }

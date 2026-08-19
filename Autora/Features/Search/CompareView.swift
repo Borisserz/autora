@@ -3,28 +3,46 @@ import SwiftUI
 struct CompareView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @State private var pickerSlot: Int?
+    @State private var showCatalog = false
 
     private var listings: [Listing] {
         model.compareIDs.compactMap(model.listing(id:))
     }
 
+    private var pair: (Listing, Listing)? {
+        guard listings.count >= 2 else { return nil }
+        return (listings[0], listings[1])
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Два автомобиля рядом. Выберите слот — видно цену и пробег.")
+                Text("Два объявления рядом: цена, пробег и срок продажи.")
                     .font(.footnote)
                     .foregroundStyle(AutoraTheme.muted)
                 HStack(alignment: .top, spacing: 10) {
                     slot(0)
                     slot(1)
                 }
-                if listings.count > 2 {
-                    ForEach(listings.dropFirst(2)) { listing in
-                        compareCard(listing, slot: 2)
+                if let pair {
+                    let delta = CompareDelta.of(pair.0, pair.1, usdBYN: model.fx.usdBYN)
+                    if delta.isDuplicate {
+                        Text("В обоих слотах одно и то же авто. Выберите другое во втором слоте.")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AutoraTheme.ink)
+                            .padding(12)
+                            .frame(maxWidth: .infinity)
+                            .background(AutoraTheme.amber.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                }
-                if listings.count >= 2 {
+                    deltaStrip(delta)
                     specTable
+                    Button("Каталог моделей CoolAV") { showCatalog = true }
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
             .padding(16)
@@ -42,6 +60,15 @@ struct CompareView: View {
                 }
             }
         }
+        .sheet(isPresented: Binding(
+            get: { pickerSlot != nil },
+            set: { if !$0 { pickerSlot = nil } }
+        )) {
+            ComparePickerView(slot: pickerSlot ?? 0)
+        }
+        .sheet(isPresented: $showCatalog) {
+            ModelCatalogView()
+        }
     }
 
     @ViewBuilder
@@ -58,29 +85,16 @@ struct CompareView: View {
         return model.listing(id: model.compareIDs[index])
     }
 
-    private func pickerListings(for index: Int) -> [Listing] {
-        let taken = Set(
-            model.compareIDs.enumerated().compactMap { offset, id in
-                offset == index ? nil : id
-            }
-        )
-        return model.listings.filter { $0.status == .active && !taken.contains($0.id) }
-    }
-
     private func emptySlot(_ index: Int) -> some View {
-        Menu {
-            ForEach(pickerListings(for: index)) { listing in
-                Button(listing.title) {
-                    model.setCompare(listing.id, slot: index)
-                }
-            }
+        Button {
+            pickerSlot = index
         } label: {
             VStack(spacing: 10) {
                 Image(systemName: "plus")
                     .font(.title2.weight(.semibold))
                 Text("Авто \(index + 1)")
                     .font(.subheadline.weight(.semibold))
-                Text("Выбрать из каталога")
+                Text("Подобрать из каталога")
                     .font(.caption)
                     .foregroundStyle(AutoraTheme.muted)
             }
@@ -115,15 +129,28 @@ struct CompareView: View {
             Text(price.secondary)
                 .font(.caption)
                 .foregroundStyle(AutoraTheme.muted)
-            HStack {
-                Menu("Заменить") {
-                    ForEach(pickerListings(for: slot)) { candidate in
-                        Button(candidate.title) {
-                            model.setCompare(candidate.id, slot: slot)
-                        }
-                    }
+            Label("VIN: без ДТП", systemImage: "checkmark.shield.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(AutoraTheme.emerald)
+            Text("Продажа ~\(ListingLiquidity.daysToSell(listing, usdBYN: model.fx.usdBYN)) дн.")
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.muted)
+            Button("Позвонить") {
+                if let url = PhoneLink.telURL(listing.sellerPhone) {
+                    model.recordPhoneReveal(listingID: listing.id)
+                    openURL(url)
+                } else {
+                    model.flash("Связь с продавцом: \(listing.sellerPhone)")
                 }
-                .font(.caption.weight(.semibold))
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            HStack {
+                Button("Заменить") { pickerSlot = slot }
+                    .font(.caption.weight(.semibold))
                 Button("Убрать") { model.toggleCompare(listing.id) }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AutoraTheme.muted)
@@ -139,6 +166,20 @@ struct CompareView: View {
         }
     }
 
+    private func deltaStrip(_ delta: CompareDelta) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Разница в цене: \(PriceConverter.formatUSD(Double(delta.priceUSD))) · \(delta.cheaperLabel)")
+                .font(.caption.weight(.semibold))
+            Text("Пробег: \(delta.mileageKm.formatted()) км • Возраст: \(delta.yearSummary)")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.8))
+        }
+        .foregroundStyle(.white)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private var specTable: some View {
         VStack(spacing: 0) {
             specRow("Год", listings.map { "\($0.year)" }, winner: CompareAxis.newer(listings))
@@ -147,8 +188,18 @@ struct CompareView: View {
             specRow("Топливо", listings.map(\.fuel), winner: nil)
             specRow("КПП", listings.map(\.transmission), winner: nil)
             specRow("Город", listings.map(\.city), winner: nil)
+            specRow("Продажа", listings.map { "\(ListingLiquidity.daysToSell($0, usdBYN: model.fx.usdBYN)) дн." }, winner: nil)
+            specRow("Оценка", listings.map { String(format: "%.1f", insight($0).overall) }, winner: nil)
+            specRow("Запчасти", listings.map { String(format: "%.1f", insight($0).parts) }, winner: nil)
+            specRow("Комфорт", listings.map { String(format: "%.1f", insight($0).comfort) }, winner: nil)
+            specRow("Надёжность", listings.map { String(format: "%.1f", insight($0).reliability) }, winner: nil)
+            specRow("Содержание", listings.map { "$\(insight($0).monthlyUSD)/мес" }, winner: nil)
         }
         .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func insight(_ listing: Listing) -> ModelInsight.Insight {
+        ModelInsight.lookup(make: listing.make, model: listing.model)
     }
 
     private func specRow(_ title: String, _ values: [String], winner: String?) -> some View {
@@ -157,7 +208,7 @@ struct CompareView: View {
                 .font(.caption)
                 .foregroundStyle(AutoraTheme.muted)
                 .frame(width: 64, alignment: .leading)
-            ForEach(Array(listings.enumerated()), id: \.element.id) { index, listing in
+            ForEach(Array(listings.prefix(2).enumerated()), id: \.element.id) { index, listing in
                 if index < values.count {
                     Text(values[index])
                         .font(.caption.weight(.semibold))

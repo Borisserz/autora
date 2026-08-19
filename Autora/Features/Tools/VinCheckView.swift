@@ -2,9 +2,17 @@ import SwiftUI
 
 struct VinCheckView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var vin = "X7LLG1234PA987654"
+    var initialVin: String = "X7LLG1234PA987654"
+    @State private var vin: String
     @State private var searching = false
     @State private var ready = false
+
+    init(initialVin: String = "X7LLG1234PA987654") {
+        self.initialVin = initialVin
+        _vin = State(initialValue: String(initialVin.prefix(17)))
+    }
+
+    private var report: VinReport { VinReport.demo(vin: vin) }
 
     var body: some View {
         NavigationStack {
@@ -15,43 +23,58 @@ struct VinCheckView: View {
                     Text("История CoolAV и открытые базы ГАИ. Демо-отчёт, без парсинга чужих сайтов.")
                         .font(.footnote)
                         .foregroundStyle(AutoraTheme.muted)
-                    HStack {
-                        TextField("VIN", text: $vin)
-                            .textInputAutocapitalization(.characters)
-                            .font(.body.monospacedDigit())
-                        Button("Проверить") {
-                            searching = true
-                            Task {
-                                try? await Task.sleep(for: .milliseconds(600))
-                                searching = false
-                                ready = true
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            TextField("VIN", text: $vin)
+                                .textInputAutocapitalization(.characters)
+                                .font(.body.monospacedDigit())
+                                .onChange(of: vin) { _, value in
+                                    let clipped = String(value.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(17))
+                                    if clipped != vin { vin = clipped }
+                                }
+                            Text("\(vin.count)/17")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(AutoraTheme.muted)
+                            Button(searching ? "Поиск…" : "Проверить") {
+                                searching = true
+                                ready = false
+                                Task {
+                                    try? await Task.sleep(for: .milliseconds(600))
+                                    searching = false
+                                    ready = true
+                                }
+                            }
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .disabled(vin.count < 5 || searching)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                Text("Примеры")
+                                    .font(.caption)
+                                    .foregroundStyle(AutoraTheme.muted)
+                                ForEach(VinReport.samples) { sample in
+                                    Button(sample.label) {
+                                        vin = sample.vin
+                                        ready = false
+                                    }
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
+                                    .background(Color.white, in: Capsule())
+                                }
                             }
                         }
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .disabled(vin.count < 5 || searching)
                     }
                     .padding(12)
                     .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     if ready {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label("Проверен, ДТП не найдено", systemImage: "checkmark.seal.fill")
-                                .foregroundStyle(AutoraTheme.emerald)
-                                .font(.subheadline.weight(.semibold))
-                            Text("Юридическая чистота: ограничений не обнаружено.")
-                                .font(.footnote)
-                                .foregroundStyle(AutoraTheme.muted)
-                            Text("Пробег по сервисам согласован с объявлением.")
-                                .font(.footnote)
-                                .foregroundStyle(AutoraTheme.muted)
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        reportBlock
                     }
                 }
                 .padding(20)
@@ -67,124 +90,83 @@ struct VinCheckView: View {
         }
         .presentationDetents([.large])
     }
-}
 
-struct ValuationView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @State private var make = "Geely"
-    @State private var year = 2022
-    @State private var mileage = 45_000
-    @State private var condition: MarketValuation.Condition = .good
-
-    private var quote: MarketValuation.Quote {
-        MarketValuation.quote(
-            make: make,
-            year: year,
-            mileageKm: mileage,
-            condition: condition,
-            usdBYN: model.fx.usdBYN
-        )
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Узнайте реальную рыночную стоимость авто")
-                        .font(.system(.title2, design: .serif))
-                    Text("Оценка для продажи и покупки. Курс сида CoolAV, не оферта.")
-                        .font(.footnote)
+    private var reportBlock: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Юридически чист • Без ограничений и залогов")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AutoraTheme.emerald)
+                    Text("VIN: \(report.vin)")
+                        .font(.caption.monospacedDigit())
                         .foregroundStyle(AutoraTheme.muted)
+                }
+                Spacer()
+                Text("Рейтинг \(report.safetyScore.formatted(.number.precision(.fractionLength(1)))) / 10")
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(.white, in: Capsule())
+            }
+            .padding(14)
+            .background(AutoraTheme.emerald.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-                    picker("Марка авто", selection: $make, options: ["Geely", "BMW", "Volkswagen", "Tesla", "Mercedes-Benz", "Toyota", "Li Auto"])
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                statusCell("Розыск (ГАИ РБ)", report.wantedOK ? "Не числится" : "Проверить")
+                statusCell("Залоги в банках", report.liensOK ? "Без обременений" : "Проверить")
+                statusCell("История ДТП", report.accidentsOK ? "Не зафиксировано" : "Проверить")
+                statusCell("Владельцев в РБ", "\(report.ownersInBY) владелец")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("История пробега")
+                    .font(.subheadline.weight(.bold))
+                ForEach(report.mileage) { event in
                     HStack {
-                        stepper("Год", value: $year, range: 2015...2026)
-                        stepper("Пробег, км", value: $mileage, range: 0...300_000, step: 5_000)
-                    }
-                    HStack {
-                        ForEach(MarketValuation.Condition.allCases) { item in
-                            Button(item.title) { condition = item }
-                                .font(.caption.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .foregroundStyle(condition == item ? .white : AutoraTheme.ink)
-                                .background(
-                                    condition == item ? AutoraTheme.ink : AutoraTheme.surface,
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(event.date) • \(event.title)")
+                                .font(.caption)
+                            Text("\(event.km.formatted()) км")
+                                .font(.caption.weight(.bold).monospacedDigit())
                         }
+                        Spacer()
                     }
+                    .padding(10)
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Рекомендованная рыночная цена")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(AutoraTheme.muted)
-                        Text(PriceConverter.formatUSD(Double(quote.usd)))
-                            .font(.system(.largeTitle, design: .serif).weight(.bold))
-                        Text(PriceConverter.formatApproxBYN(quote.byn))
-                            .foregroundStyle(AutoraTheme.muted)
-                        Text("Диапазон быстрой продажи: \(PriceConverter.formatUSD(Double(quote.minUSD))) — \(PriceConverter.formatUSD(Double(quote.maxUSD)))")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Регистрационные действия")
+                    .font(.subheadline.weight(.bold))
+                ForEach(report.registry) { event in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title)
+                            .font(.caption.weight(.semibold))
+                        Text(event.detail)
                             .font(.caption)
                             .foregroundStyle(AutoraTheme.muted)
-                        Text("Прогнозируемый срок продажи: \(quote.days) дней")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(AutoraTheme.emerald)
                     }
-                    .padding(16)
+                    .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                    Button("Разместить объявление по этой цене") {
-                        model.applyValuationToDraft(
-                            make: make,
-                            year: year,
-                            mileageKm: mileage,
-                            priceBYN: quote.byn
-                        )
-                        dismiss()
-                    }
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .padding(20)
-            }
-            .paperCanvas()
-            .navigationTitle("Оценка")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
         }
     }
 
-    private func picker(_ title: String, selection: Binding<String>, options: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(AutoraTheme.muted)
-            Picker(title, selection: selection) {
-                ForEach(options, id: \.self) { Text($0).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    private func statusCell(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(AutoraTheme.muted)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AutoraTheme.emerald)
         }
-    }
-
-    private func stepper(_ title: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int = 1) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(AutoraTheme.muted)
-            Stepper(value: value, in: range, step: step) {
-                Text("\(value.wrappedValue.formatted())")
-                    .font(.body.monospacedDigit())
-            }
-            .padding(10)
-            .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

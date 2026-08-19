@@ -15,6 +15,8 @@ struct OwnedGarageCar: Identifiable, Codable, Equatable, Sendable, Hashable {
     var city: String
     var engine: String
     var photoURL: String?
+    var licensePlate: String?
+    var buyPriceUSD: Int?
 
     var title: String { "\(make) \(model)" }
 
@@ -33,7 +35,9 @@ struct OwnedGarageCar: Identifiable, Codable, Equatable, Sendable, Hashable {
             nextOilServiceKm: 40_000,
             city: "Минск",
             engine: "1.5T Бензин (177 л.с.)",
-            photoURL: nil
+            photoURL: nil,
+            licensePlate: "7788 AB-7",
+            buyPriceUSD: 19_800
         ),
         OwnedGarageCar(
             id: "gar-2",
@@ -49,7 +53,9 @@ struct OwnedGarageCar: Identifiable, Codable, Equatable, Sendable, Hashable {
             nextOilServiceKm: 85_000,
             city: "Минск",
             engine: "2.0d Дизель (190 л.с.)",
-            photoURL: nil
+            photoURL: nil,
+            licensePlate: "1234 MI-7",
+            buyPriceUSD: 29_200
         )
     ]
 }

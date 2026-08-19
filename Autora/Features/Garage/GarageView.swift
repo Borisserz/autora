@@ -74,12 +74,27 @@ struct GarageView: View {
 
     @ViewBuilder
     private var deferred: some View {
-        listingStack(
-            model.listings.filter { model.isDeferred($0.id) },
-            emptyTitle: "Ваш список отложенных покупок пуст",
-            emptyText: "Нажимайте «В гараж» на автомобилях в каталоге, чтобы следить за скидками.",
-            showsDrop: true
-        )
+        let items = model.listings.filter { model.isDeferred($0.id) }
+        if items.isEmpty {
+            EmptyStateView(
+                title: "Ваш список отложенных покупок пуст",
+                text: "Нажимайте «В гараж» на автомобилях в каталоге, чтобы следить за скидками.",
+                illustration: .favorites,
+                actionTitle: nil
+            )
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(items) { listing in
+                        DeferredTrackerCard(listing: listing) {
+                            path.append(listing.id)
+                        }
+                        .matchedTransitionSource(id: listing.id, in: catalog)
+                    }
+                }
+                .padding(20)
+            }
+        }
     }
 
     @ViewBuilder
@@ -233,8 +248,18 @@ private struct GarageFleetCard: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
                         .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Spacer(minLength: 4)
+                    if let plate = car.licensePlate, !plate.isEmpty {
+                        Text(plate)
+                            .font(.caption2.monospaced().weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                 }
                 .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -257,6 +282,11 @@ private struct GarageFleetCard: View {
                         Text(price.secondary)
                             .font(.caption)
                             .foregroundStyle(AutoraTheme.muted)
+                        if let buy = car.buyPriceUSD {
+                            Text("Куплено за \(PriceConverter.formatUSD(Double(buy)))")
+                                .font(.caption2)
+                                .foregroundStyle(AutoraTheme.muted)
+                        }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
@@ -308,6 +338,222 @@ private struct GarageFleetCard: View {
     }
 }
 
+private struct DeferredTrackerCard: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+    let listing: Listing
+    var onOpen: () -> Void
+    @State private var editingNote = false
+    @State private var noteDraft = ""
+    @State private var editingTarget = false
+    @State private var targetDraft = 0
+
+    private var item: DeferredPurchase? { model.deferredPurchase(id: listing.id) }
+    private var price: PriceDisplay.Pair {
+        PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: onOpen) {
+                header
+            }
+            .buttonStyle(.plain)
+            priceBlock
+            targetBlock
+            leaseLine
+            noteBlock
+            HStack {
+                Button("Позвонить") {
+                    if let url = PhoneLink.telURL(listing.sellerPhone) {
+                        model.recordPhoneReveal(listingID: listing.id)
+                        openURL(url)
+                    } else {
+                        model.flash("Связь с продавцом: \(listing.sellerPhone)")
+                    }
+                }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Button("Убрать") { model.toggleDeferred(listing.id) }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AutoraTheme.bargainRed)
+                    .padding(.horizontal, 12)
+            }
+        }
+        .padding(16)
+        .background(AutoraTheme.canvas)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AutoraTheme.hairline, lineWidth: 1)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let url = listing.photoURLs.first {
+                AutoraRemotePhoto(urlString: url, height: 140)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(alignment: .topLeading) {
+                        if let item, item.usdDropped(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN) > 0 {
+                            Text("−\(PriceConverter.formatUSD(Double(item.usdDropped(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN)))) от старта")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(AutoraTheme.bargainRed, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .padding(10)
+                        }
+                    }
+            }
+            Text(listing.title)
+                .font(.headline)
+                .foregroundStyle(AutoraTheme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("\(listing.year) г. • \(listing.mileageKm.formatted()) км • \(ListingSpecs.engineLine(listing))")
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.muted)
+        }
+    }
+
+    private var priceBlock: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Текущая цена")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AutoraTheme.muted)
+                Text(price.primary)
+                    .font(.title2.weight(.bold).monospacedDigit())
+                Text(price.secondary)
+                    .font(.caption)
+                    .foregroundStyle(AutoraTheme.muted)
+            }
+            Spacer()
+            if let item {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Было")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(AutoraTheme.muted)
+                    Text(
+                        PriceDisplay.pair(
+                            byn: item.originalPriceBYN,
+                            rate: model.fx.usdBYN,
+                            showUSD: model.showUSD
+                        ).primary
+                    )
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .strikethrough()
+                    .foregroundStyle(AutoraTheme.muted)
+                }
+            }
+        }
+        .padding(12)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var targetBlock: some View {
+        if let item {
+            let reached = item.isTargetReached(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Моя целевая цена", systemImage: "bell.fill")
+                        .font(.caption.weight(.bold))
+                    Spacer()
+                    if editingTarget {
+                        HStack {
+                            TextField("USD", value: $targetDraft, format: .number)
+                                .keyboardType(.numberPad)
+                                .frame(width: 72)
+                            Button("OK") {
+                                model.setDeferredTargetUSD(listing.id, targetDraft)
+                                editingTarget = false
+                            }
+                            .font(.caption.weight(.bold))
+                        }
+                    } else {
+                        Button {
+                            targetDraft = item.targetPriceUSD
+                            editingTarget = true
+                        } label: {
+                            Text(PriceConverter.formatUSD(Double(item.targetPriceUSD)))
+                                .font(.caption.weight(.bold))
+                        }
+                    }
+                }
+                Text(
+                    reached
+                        ? "Целевая цена достигнута. Можно покупать."
+                        : "До цели ещё \(PriceConverter.formatUSD(Double(item.usdToTarget(currentBYN: listing.priceBYN, usdBYN: model.fx.usdBYN))))"
+                )
+                .font(.caption)
+                .foregroundStyle(reached ? AutoraTheme.emerald : AutoraTheme.ink)
+            }
+            .padding(12)
+            .background(
+                reached ? AutoraTheme.emerald.opacity(0.12) : AutoraTheme.amber.opacity(0.14),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+        }
+    }
+
+    private var leaseLine: some View {
+        let usd = PriceConverter.usd(fromBYN: listing.priceBYN, rate: model.fx.usdBYN)
+        let monthly = LeaseQuote.monthlyBYN(priceUSD: usd, downPercent: 30, years: 4, usdBYN: model.fx.usdBYN)
+        return HStack {
+            Text("Лизинг 30% / 4 г.")
+                .font(.caption)
+                .foregroundStyle(AutoraTheme.muted)
+            Spacer()
+            Text("\(monthly.formatted()) Br / мес")
+                .font(.caption.weight(.bold))
+        }
+        .padding(12)
+        .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var noteBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Моя заметка")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AutoraTheme.muted)
+                Spacer()
+                Button(editingNote ? "Отмена" : "Изменить") {
+                    if editingNote {
+                        editingNote = false
+                    } else {
+                        noteDraft = item?.userNote ?? ""
+                        editingNote = true
+                    }
+                }
+                .font(.caption.weight(.semibold))
+            }
+            if editingNote {
+                TextField("Договорились о встрече…", text: $noteDraft, axis: .vertical)
+                    .lineLimit(2...4)
+                    .font(.footnote)
+                Button("Сохранить") {
+                    model.setDeferredNote(listing.id, noteDraft)
+                    editingNote = false
+                }
+                .font(.caption.weight(.bold))
+            } else {
+                Text((item?.userNote.isEmpty == false) ? (item?.userNote ?? "") : "Добавьте заметку к авто.")
+                    .font(.footnote)
+                    .foregroundStyle(AutoraTheme.ink.opacity(0.8))
+                    .italic()
+            }
+        }
+    }
+}
+
 private struct AddGarageCarView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -316,6 +562,8 @@ private struct AddGarageCarView: View {
     @State private var year = 2022
     @State private var mileageKm = 40_000
     @State private var city = "Минск"
+    @State private var licensePlate = ""
+    @State private var buyPriceUSD = 0
 
     private var makes: [String] {
         let catalog = FilterCatalog.makes(in: model.listings)
@@ -333,6 +581,10 @@ private struct AddGarageCarView: View {
                 TextField("Пробег, км", value: $mileageKm, format: .number)
                     .keyboardType(.numberPad)
                 TextField("Город", text: $city)
+                TextField("Номер, например 7788 AB-7", text: $licensePlate)
+                    .textInputAutocapitalization(.characters)
+                TextField("Куплено за, $", value: $buyPriceUSD, format: .number)
+                    .keyboardType(.numberPad)
             }
             .navigationTitle("В автопарк")
             .navigationBarTitleDisplayMode(.inline)
@@ -372,7 +624,12 @@ private struct AddGarageCarView: View {
                 nextInsuranceDate: "—",
                 nextOilServiceKm: mileageKm + 10_000,
                 city: city,
-                engine: "—"
+                engine: "—",
+                photoURL: nil,
+                licensePlate: licensePlate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? nil
+                    : licensePlate.trimmingCharacters(in: .whitespacesAndNewlines),
+                buyPriceUSD: buyPriceUSD > 0 ? buyPriceUSD : nil
             )
         )
         dismiss()

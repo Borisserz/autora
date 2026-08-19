@@ -21,8 +21,11 @@ final class AppModel {
     var favoriteIDs: Set<String> = [] {
         didSet { persistIfReady { persistFavorites() } }
     }
-    var deferredIDs: Set<String> = [] {
+    var deferredPurchases: [DeferredPurchase] = [] {
         didSet { persistIfReady { persistDeferred() } }
+    }
+    var deferredIDs: Set<String> {
+        Set(deferredPurchases.map(\.id))
     }
     var ownedGarage: [OwnedGarageCar] = [] {
         didSet { persistIfReady { persistOwnedGarage() } }
@@ -92,7 +95,6 @@ final class AppModel {
         }
         fx = loaded.fx
         favoriteIDs = Set(defaults.stringArray(forKey: Keys.favorites) ?? [])
-        deferredIDs = Set(defaults.stringArray(forKey: Keys.deferred) ?? [])
         ownedGarage = loadOwnedGarage()
         recentlyViewedIDs = defaults.stringArray(forKey: Keys.recent) ?? []
         blockedSellerIDs = Set(defaults.stringArray(forKey: Keys.blocked) ?? [])
@@ -110,6 +112,7 @@ final class AppModel {
         session = loadSession()
         myListings = loadMyListings()
         listings = CatalogMerge.listings(seed: loaded.listings, mine: myListings)
+        deferredPurchases = loadDeferred(from: listings)
         let storedChats = loadChats()
         chats = storedChats.isEmpty
             ? loaded.chats
@@ -154,18 +157,31 @@ final class AppModel {
     }
 
     func isDeferred(_ id: String) -> Bool {
-        deferredIDs.contains(id)
+        deferredPurchases.contains { $0.id == id }
+    }
+
+    func deferredPurchase(id: String) -> DeferredPurchase? {
+        deferredPurchases.first { $0.id == id }
     }
 
     func toggleDeferred(_ id: String) {
-        if deferredIDs.contains(id) {
-            deferredIDs.remove(id)
+        if let idx = deferredPurchases.firstIndex(where: { $0.id == id }) {
+            deferredPurchases.remove(at: idx)
             flash("Удалено из отложенных покупок")
-        } else {
-            deferredIDs.insert(id)
-            let title = listing(id: id)?.title ?? "Авто"
-            flash("«\(title)» добавлен в Отложенные покупки")
+        } else if let listing = listing(id: id) {
+            deferredPurchases.insert(DeferredPurchase.capturing(listing, now: now(), usdBYN: fx.usdBYN), at: 0)
+            flash("«\(listing.title)» добавлен в Отложенные покупки")
         }
+    }
+
+    func setDeferredNote(_ id: String, _ note: String) {
+        guard let idx = deferredPurchases.firstIndex(where: { $0.id == id }) else { return }
+        deferredPurchases[idx].userNote = note
+    }
+
+    func setDeferredTargetUSD(_ id: String, _ usd: Int) {
+        guard let idx = deferredPurchases.firstIndex(where: { $0.id == id }) else { return }
+        deferredPurchases[idx].targetPriceUSD = max(0, usd)
     }
 
     func flash(_ message: String) {
@@ -198,11 +214,11 @@ final class AppModel {
 
     func updateProfile(name: String, phone: String) {
         guard case .signedIn(let profile) = session else { return }
-        session = .signedIn(UserProfile(id: profile.id, name: name, phone: phone, isOwner: profile.isOwner))
+        session = .signedIn(UserProfile(id: profile.id, name: name, phone: BelarusPhone.e164(phone), isOwner: profile.isOwner))
         for listing in myListings {
             mutateListing(listing.id) {
                 $0.sellerName = name
-                $0.sellerPhone = phone
+                $0.sellerPhone = BelarusPhone.e164(phone)
             }
         }
     }
@@ -385,6 +401,27 @@ final class AppModel {
 
     private func persistDeferred() {
         defaults.set(Array(deferredIDs), forKey: Keys.deferred)
+        if let data = try? JSONEncoder().encode(deferredPurchases) {
+            defaults.set(data, forKey: Keys.deferredPurchases)
+        }
+    }
+
+    private func loadDeferred(from listings: [Listing]) -> [DeferredPurchase] {
+        if let data = defaults.data(forKey: Keys.deferredPurchases),
+           let decoded = try? JSONDecoder().decode([DeferredPurchase].self, from: data) {
+            return decoded
+        }
+        return (defaults.stringArray(forKey: Keys.deferred) ?? []).map { id in
+            let price = listings.first { $0.id == id }?.priceBYN ?? 0
+            let usd = Int(PriceConverter.usd(fromBYN: price, rate: fx.usdBYN).rounded())
+            return DeferredPurchase(
+                id: id,
+                originalPriceBYN: price,
+                targetPriceUSD: Int((Double(usd) * 0.95).rounded()),
+                userNote: "",
+                savedAt: now()
+            )
+        }
     }
 
     private func persistOwnedGarage() {
@@ -481,6 +518,7 @@ final class AppModel {
     private enum Keys {
         static let favorites = "autora.favorites"
         static let deferred = "autora.deferred"
+        static let deferredPurchases = "autora.deferredPurchases"
         static let ownedGarage = "autora.ownedGarage"
         static let recent = "autora.recent"
         static let blocked = "autora.blocked"

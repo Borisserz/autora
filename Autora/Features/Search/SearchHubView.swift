@@ -6,6 +6,7 @@ struct SearchHubView: View {
     @State private var showCompare = false
     @State private var showVIN = false
     @State private var showValuation = false
+    @State private var showRadar = false
     @State private var savedFlash = false
     @State private var path = NavigationPath()
     @State private var revealedIDs: Set<String> = []
@@ -21,6 +22,8 @@ struct SearchHubView: View {
                             onPost: { model.selectedTab = .listings },
                             onVIN: { showVIN = true },
                             onValuation: { showValuation = true },
+                            onGarage: { model.selectedTab = .favorites },
+                            garageCount: model.favoriteIDs.count + model.deferredPurchases.count,
                             onShowCatalog: {
                                 withAnimation(AutoraMotion.press) {
                                     proxy.scrollTo("catalog", anchor: .top)
@@ -36,6 +39,9 @@ struct SearchHubView: View {
                         MarketTickerView()
                         HubCatalogHeader()
                             .id("catalog")
+                        if !MarketDeal.radar(in: model.listings).isEmpty {
+                            MarketRadarStrip { showRadar = true }
+                        }
                         if let loadError = model.loadError {
                             EmptyStateView(
                                 title: "Каталог недоступен",
@@ -93,6 +99,9 @@ struct SearchHubView: View {
             }
             .sheet(isPresented: $showValuation) {
                 ValuationView()
+            }
+            .sheet(isPresented: $showRadar) {
+                MarketRadarView()
             }
             .safeAreaInset(edge: .bottom) {
                 if model.compareIDs.count >= 2 {
@@ -204,6 +213,8 @@ private struct HubHero: View {
     var onPost: () -> Void
     var onVIN: () -> Void
     var onValuation: () -> Void
+    var onGarage: () -> Void
+    var garageCount: Int
     var onShowCatalog: () -> Void
     var onOpenFilters: () -> Void
     var onSaveSearch: () -> Void
@@ -258,6 +269,25 @@ private struct HubHero: View {
             Spacer(minLength: 4)
             islandIcon("checkmark.shield.fill", label: "VIN", action: onVIN)
             islandIcon("chart.line.uptrend.xyaxis", label: "Оценка", action: onValuation)
+            Button(action: onGarage) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "bookmark.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                    if garageCount > 0 {
+                        Text("\(min(garageCount, 9))")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.black)
+                            .frame(minWidth: 16, minHeight: 16)
+                            .background(.white, in: Circle())
+                            .offset(x: 2, y: 4)
+                    }
+                }
+                .contentShape(Circle())
+            }
+            .buttonStyle(PressableInkStyle())
+            .accessibilityLabel("Гараж")
             Button(action: onPost) {
                 Text("+ Подать")
                     .font(.caption.weight(.bold))
@@ -339,6 +369,14 @@ private struct HubSearchWidget: View {
                 modelMenu
                 yearMenus
                 priceMenu
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ListingCategoryTab.allCases.filter { $0 != .all }) { tab in
+                        CategoryChip(tab: tab, title: tab.chipTitle, idleFill: AutoraTheme.surface)
+                    }
+                }
             }
 
             HStack {
@@ -664,5 +702,46 @@ struct MarketTickerView: View {
         .frame(height: 36)
         .background(AutoraTheme.ink)
         .clipped()
+    }
+}
+
+private struct MarketRadarStrip: View {
+    @Environment(AppModel.self) private var model
+    var onOpen: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Выгодные сейчас")
+                    .font(.subheadline.weight(.bold))
+                Spacer()
+                Button("Все", action: onOpen)
+                    .font(.caption.weight(.semibold))
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(MarketDeal.radar(in: model.listings).prefix(6))) { listing in
+                        let percent = MarketDeal.discountPercent(for: listing, in: model.listings) ?? 0
+                        let price = PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("−\(percent)%")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(AutoraTheme.emerald)
+                            Text(listing.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(2)
+                                .foregroundStyle(AutoraTheme.ink)
+                            Text(price.primary)
+                                .font(.footnote.weight(.bold).monospacedDigit())
+                        }
+                        .frame(width: 148, alignment: .leading)
+                        .padding(10)
+                        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, AutoraTheme.pageGutter)
+        .padding(.vertical, 12)
     }
 }
