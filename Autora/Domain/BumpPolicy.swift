@@ -12,8 +12,9 @@ struct BumpPolicy: Equatable, Sendable {
         Date(timeIntervalSince1970: lastBumped + interval)
     }
 
-    static func isExpired(bumpedAt: TimeInterval, now: TimeInterval) -> Bool {
-        now - bumpedAt >= lifetime
+    static func isExpired(bumpedAt: TimeInterval, now: TimeInterval, isDemo: Bool = false) -> Bool {
+        if isDemo { return false }
+        return now - bumpedAt >= lifetime
     }
 
     static func hoursUntilBump(lastBumped: TimeInterval, now: TimeInterval) -> Int {

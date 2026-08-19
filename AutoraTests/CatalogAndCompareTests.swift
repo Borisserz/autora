@@ -81,19 +81,18 @@ struct FilterCatalogTests {
 }
 
 struct CompareSetTests {
-    @Test func addsUntilThreeThenIgnores() {
+    @Test func addsUntilTwoThenIgnores() {
         var ids: [String] = []
         ids = CompareSet.toggling("a", in: ids)
         ids = CompareSet.toggling("b", in: ids)
         ids = CompareSet.toggling("c", in: ids)
-        #expect(ids == ["a", "b", "c"])
-        ids = CompareSet.toggling("d", in: ids)
-        #expect(ids == ["a", "b", "c"])
+        #expect(ids == ["a", "b"])
+        #expect(CompareSet.limit == 2)
     }
 
     @Test func togglingExistingRemoves() {
-        let ids = CompareSet.toggling("b", in: ["a", "b", "c"])
-        #expect(ids == ["a", "c"])
+        let ids = CompareSet.toggling("b", in: ["a", "b"])
+        #expect(ids == ["a"])
     }
 
     @Test func settingSlotReplacesWithoutDuplicates() {

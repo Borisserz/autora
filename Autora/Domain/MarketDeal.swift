@@ -3,8 +3,8 @@ import Foundation
 enum MarketDeal {
     static func discountPercent(for listing: Listing, in all: [Listing]) -> Int? {
         guard let avg = MarketPrice.peerAverageBYN(for: listing, in: all), avg > 0 else { return nil }
+        guard listing.priceBYN < Int(Double(avg) * 0.92) else { return nil }
         let delta = avg - listing.priceBYN
-        guard delta > 0 else { return nil }
         return Int((Double(delta) / Double(avg) * 100).rounded())
     }
 

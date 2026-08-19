@@ -63,7 +63,7 @@ struct ValuationView: View {
                         Text("Прогнозируемый срок продажи: \(quote.days) дней")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(AutoraTheme.emerald)
-                        Text("Ликвидность модели: высокая")
+                        Text("Ликвидность модели: \(MarketValuation.liquidityTitle(days: quote.days))")
                             .font(.caption)
                             .foregroundStyle(AutoraTheme.muted)
                     }
@@ -98,7 +98,12 @@ struct ValuationView: View {
                         .padding(.vertical, 12)
                         .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    ModelInsightCard(insight: ModelInsight.lookup(make: make))
+                    if let insight = ModelInsight.typical(forMake: make) {
+                        Text("Типовая модель каталога — не оценка конкретного объявления.")
+                            .font(.caption)
+                            .foregroundStyle(AutoraTheme.muted)
+                        ModelInsightCard(insight: insight)
+                    }
                 }
                 .padding(20)
             }
@@ -114,7 +119,7 @@ struct ValuationView: View {
                 MarketRadarView()
             }
             .sheet(isPresented: $showCatalog) {
-                ModelCatalogView(initialID: ModelInsight.lookup(make: make).id)
+                ModelCatalogView(initialID: ModelInsight.typical(forMake: make)?.id)
             }
         }
     }

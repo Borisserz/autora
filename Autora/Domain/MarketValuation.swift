@@ -1,7 +1,7 @@
 import Foundation
 
 enum MarketValuation {
-    enum Condition: String, CaseIterable, Identifiable, Sendable {
+    enum Condition: String, Codable, CaseIterable, Identifiable, Sendable {
         case excellent, good, average
         var id: String { rawValue }
         var title: String {
@@ -58,6 +58,14 @@ enum MarketValuation {
             maxUSD: Int((fair * 1.07).rounded()),
             days: max(8, 22 - extraDays + diff * 2)
         )
+    }
+
+    static func liquidityTitle(days: Int) -> String {
+        switch days {
+        case ...14: "высокая"
+        case 15...22: "средняя"
+        default: "ниже средней"
+        }
     }
 }
 

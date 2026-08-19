@@ -129,9 +129,6 @@ struct CompareView: View {
             Text(price.secondary)
                 .font(.caption)
                 .foregroundStyle(AutoraTheme.muted)
-            Label("VIN: без ДТП", systemImage: "checkmark.shield.fill")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(AutoraTheme.emerald)
             Text("Продажа ~\(ListingLiquidity.daysToSell(listing, usdBYN: model.fx.usdBYN)) дн.")
                 .font(.caption)
                 .foregroundStyle(AutoraTheme.muted)
@@ -189,17 +186,21 @@ struct CompareView: View {
             specRow("КПП", listings.map(\.transmission), winner: nil)
             specRow("Город", listings.map(\.city), winner: nil)
             specRow("Продажа", listings.map { "\(ListingLiquidity.daysToSell($0, usdBYN: model.fx.usdBYN)) дн." }, winner: nil)
-            specRow("Оценка", listings.map { String(format: "%.1f", insight($0).overall) }, winner: nil)
-            specRow("Запчасти", listings.map { String(format: "%.1f", insight($0).parts) }, winner: nil)
-            specRow("Комфорт", listings.map { String(format: "%.1f", insight($0).comfort) }, winner: nil)
-            specRow("Надёжность", listings.map { String(format: "%.1f", insight($0).reliability) }, winner: nil)
-            specRow("Содержание", listings.map { "$\(insight($0).monthlyUSD)/мес" }, winner: nil)
+            specRow("Оценка", listings.map { score($0, \.overall) }, winner: nil)
+            specRow("Запчасти", listings.map { score($0, \.parts) }, winner: nil)
+            specRow("Комфорт", listings.map { score($0, \.comfort) }, winner: nil)
+            specRow("Надёжность", listings.map { score($0, \.reliability) }, winner: nil)
+            specRow("Содержание", listings.map { insight($0).map { "$\($0.monthlyUSD)/мес" } ?? "—" }, winner: nil)
         }
         .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func insight(_ listing: Listing) -> ModelInsight.Insight {
-        ModelInsight.lookup(make: listing.make, model: listing.model)
+    private func insight(_ listing: Listing) -> ModelInsight.Insight? {
+        ListingTrust.insight(for: listing)
+    }
+
+    private func score(_ listing: Listing, _ keyPath: KeyPath<ModelInsight.Insight, Double>) -> String {
+        insight(listing).map { String(format: "%.1f", $0[keyPath: keyPath]) } ?? "—"
     }
 
     private func specRow(_ title: String, _ values: [String], winner: String?) -> some View {

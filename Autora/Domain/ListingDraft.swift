@@ -24,6 +24,8 @@ struct ListingDraft: Equatable, Codable, Sendable {
     var registered: Bool = true
     var customsCleared: Bool = true
     var condition: ListingCondition = .used
+    var equipment: [String] = []
+    var valuationCondition: MarketValuation.Condition = .good
 
     static var sample: ListingDraft {
         var draft = ListingDraft()
@@ -36,12 +38,45 @@ struct ListingDraft: Equatable, Codable, Sendable {
         return draft
     }
 
+    static func normalizedVIN(_ raw: String) -> String {
+        raw.uppercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    static func from(_ listing: Listing) -> ListingDraft {
+        var draft = ListingDraft()
+        draft.make = listing.make
+        draft.model = listing.model
+        draft.generation = listing.generation ?? ""
+        draft.year = listing.year
+        draft.priceBYN = listing.priceBYN
+        draft.mileageKm = listing.mileageKm
+        draft.body = listing.body
+        draft.fuel = listing.fuel
+        draft.transmission = listing.transmission
+        draft.drivetrain = listing.drivetrain
+        draft.engineLiters = listing.engineLiters
+        draft.powerHp = listing.powerHp
+        draft.city = listing.city
+        draft.region = listing.region
+        draft.vin = listing.vin ?? ""
+        draft.description = listing.description
+        draft.photoURLs = listing.photoURLs
+        draft.bargaining = listing.bargaining
+        draft.exchange = listing.exchange
+        draft.wheel = listing.wheel
+        draft.registered = listing.registered
+        draft.customsCleared = listing.customsCleared
+        draft.condition = listing.condition
+        draft.equipment = listing.equipment ?? []
+        return draft
+    }
+
     func suggestedQuote(usdBYN: Double, nowYear: Int = 2026) -> MarketValuation.Quote {
         MarketValuation.quote(
             make: make,
             year: year,
             mileageKm: mileageKm,
-            condition: .good,
+            condition: valuationCondition,
             usdBYN: usdBYN,
             nowYear: nowYear
         )
@@ -54,6 +89,8 @@ struct ListingDraft: Equatable, Codable, Sendable {
     func canLeave(step: Int) -> Bool {
         switch step {
         case 0: !photoURLs.isEmpty
+        case 1:
+            Self.normalizedVIN(vin).isEmpty || Self.normalizedVIN(vin).count == 17
         case 2:
             !make.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -66,10 +103,25 @@ struct ListingDraft: Equatable, Codable, Sendable {
         guard !canLeave(step: step) else { return nil }
         switch step {
         case 0: return .needPhoto
+        case 1: return .needVIN
         case 2: return .needMake
         case 3: return .needPrice
         default: return nil
         }
+    }
+
+    func apply(onto listing: Listing, seller: UserProfile, now: TimeInterval) throws -> Listing {
+        var next = try makeListing(id: listing.id, seller: seller, now: now)
+        next.views = listing.views
+        next.favoritesCount = listing.favoritesCount
+        next.phoneReveals = listing.phoneReveals
+        next.createdAt = listing.createdAt
+        next.bumpedAt = listing.bumpedAt
+        next.isDemo = listing.isDemo
+        next.isTop = listing.isTop
+        next.status = listing.status
+        next.sellerListingCount = listing.sellerListingCount
+        return next
     }
 
     func makeListing(id: String, seller: UserProfile, now: TimeInterval) throws -> Listing {
@@ -78,6 +130,8 @@ struct ListingDraft: Equatable, Codable, Sendable {
         let model = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !make.isEmpty, !model.isEmpty else { throw AppError.needMake }
         guard priceBYN > 0 else { throw AppError.needPrice }
+        let vinNormalized = Self.normalizedVIN(vin)
+        if !vinNormalized.isEmpty, vinNormalized.count != 17 { throw AppError.needVIN }
         return Listing(
             id: id,
             sellerId: seller.id,
@@ -107,7 +161,7 @@ struct ListingDraft: Equatable, Codable, Sendable {
             exchange: exchange,
             forParts: false,
             damaged: false,
-            vin: vin.isEmpty ? nil : vin,
+            vin: vinNormalized.isEmpty ? nil : vinNormalized,
             isTop: false,
             isDemo: false,
             status: .active,
@@ -117,7 +171,8 @@ struct ListingDraft: Equatable, Codable, Sendable {
             favoritesCount: 0,
             phoneReveals: 0,
             bumpedAt: now,
-            createdAt: now
+            createdAt: now,
+            equipment: equipment.isEmpty ? nil : equipment
         )
     }
 }

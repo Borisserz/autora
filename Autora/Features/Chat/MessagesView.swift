@@ -109,6 +109,17 @@ struct ChatThreadView: View {
                 }
                 .padding(16)
             }
+            if let listingID = thread?.listingId, let offer = model.deferredOffer(for: listingID) {
+                Button(offer.label) {
+                    draft = offer.text
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(AutoraTheme.ink)
+                .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: AutoraTheme.specRadius, style: .continuous))
+                .padding(.horizontal)
+                .accessibilityIdentifier("autora.chat.offer")
+            }
             HStack {
                 TextField("Сообщение", text: $draft)
                     .padding(12)

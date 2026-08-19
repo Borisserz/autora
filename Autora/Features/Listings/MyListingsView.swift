@@ -22,7 +22,10 @@ struct MyListingsView: View {
                         text: "Подача занимает пару минут. Телефон должен быть в профиле. Нужны свои фото.",
                         illustration: .listings,
                         actionTitle: "Подать объявление",
-                        action: { showWizard = true }
+                        action: {
+                            model.prepareNewListing()
+                            showWizard = true
+                        }
                     )
                 } else {
                     listings
@@ -38,6 +41,7 @@ struct MyListingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Новое объявление", systemImage: "plus") {
+                        model.prepareNewListing()
                         signInAndPost()
                     }
                     .labelStyle(.iconOnly)
@@ -99,21 +103,27 @@ struct MyListingsView: View {
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(AutoraTheme.muted)
                         }
-                        HStack(spacing: 16) {
-                            let canBump = BumpPolicy.canBump(lastBumped: listing.bumpedAt, now: now)
-                            Button("Поднять") { model.bump(listing.id) }
-                                .disabled(!canBump)
-                            if !canBump {
-                                Text("через \(BumpPolicy.hoursUntilBump(lastBumped: listing.bumpedAt, now: now)) ч")
-                                    .font(.caption)
-                                    .foregroundStyle(AutoraTheme.muted)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 16) {
+                                let canBump = BumpPolicy.canBump(lastBumped: listing.bumpedAt, now: now)
+                                Button("Поднять") { model.bump(listing.id) }
+                                    .disabled(!canBump)
+                                if !canBump {
+                                    Text("через \(BumpPolicy.hoursUntilBump(lastBumped: listing.bumpedAt, now: now)) ч")
+                                        .font(.caption)
+                                        .foregroundStyle(AutoraTheme.muted)
+                                }
+                                Spacer()
                             }
-                            Spacer()
-                            if listing.status == .active {
-                                Button("Снять") { model.setListingStatus(listing.id, .inactive) }
-                                Button("Продано") { model.setListingStatus(listing.id, .sold) }
-                            } else {
-                                Button("Вернуть") { model.setListingStatus(listing.id, .active) }
+                            HStack(spacing: 16) {
+                                Button("Изменить") { model.beginEdit(listing.id) }
+                                Spacer()
+                                if listing.status == .active {
+                                    Button("Снять") { model.setListingStatus(listing.id, .inactive) }
+                                    Button("Продано") { model.setListingStatus(listing.id, .sold) }
+                                } else {
+                                    Button("Вернуть") { model.setListingStatus(listing.id, .active) }
+                                }
                             }
                         }
                         .font(.subheadline)

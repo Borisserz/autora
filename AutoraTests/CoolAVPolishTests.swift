@@ -50,24 +50,37 @@ struct OwnedGaragePlateTests {
 }
 
 struct ModelInsightTests {
-    @Test func geelyScoresHighLiquidity() {
-        let insight = ModelInsight.lookup(make: "Geely")
-        #expect(insight.tag == "Топ-ликвидность в РБ")
-        #expect(insight.overall == 9.4)
-        #expect(insight.monthlyUSD == 190)
-        #expect(insight.parts == 9.8)
-        #expect(insight.comfort == 9.2)
-        #expect(insight.reliability == 9.1)
-        #expect(insight.pros.count == 4)
-        #expect(insight.cons.count == 2)
-        #expect(insight.weakSpots.contains("круиза"))
-        #expect(!insight.idealFor.isEmpty)
+    @Test func geelyMonjaroMatchesExactModel() {
+        let insight = ModelInsight.lookup(make: "Geely", model: "Monjaro", year: 2023)
+        #expect(insight?.id == "geely-monjaro")
+        #expect(insight?.tag == "Топ-ликвидность в РБ")
+        #expect(insight?.overall == 9.4)
+        #expect(insight?.monthlyUSD == 190)
+        #expect(insight?.parts == 9.8)
+        #expect(insight?.pros.count == 4)
+        #expect(insight?.weakSpots.contains("круиза") == true)
     }
 
     @Test func catalogHasEightCoolAVModelsAndPrefersModelMatch() {
         #expect(ModelInsight.catalog.count == 8)
-        #expect(ModelInsight.lookup(make: "BMW", model: "5-Series").id == "bmw-5-g30")
-        #expect(ModelInsight.lookup(make: "Volkswagen").liquidityDays == 12)
+        #expect(ModelInsight.lookup(make: "BMW", model: "5-Series", year: 2020)?.id == "bmw-5-g30")
+        #expect(ModelInsight.lookup(make: "Volkswagen", model: "Tiguan")?.liquidityDays == 12)
+    }
+
+    @Test func makeOnlyAndWrongModelDoNotGuess() {
+        #expect(ModelInsight.lookup(make: "Geely") == nil)
+        #expect(ModelInsight.lookup(make: "Volkswagen", model: "Passat") == nil)
+        #expect(ModelInsight.lookup(make: "BMW", model: "X3") == nil)
+    }
+
+    @Test func oldGenerationDoesNotGetCurrentCatalogCard() {
+        #expect(ModelInsight.lookup(make: "Audi", model: "A6", year: 2009) == nil)
+        #expect(ModelInsight.lookup(make: "Audi", model: "A6", year: 2021)?.id == "audi-a6-c8")
+    }
+
+    @Test func typicalForMakeIsExplicitCatalogPick() {
+        #expect(ModelInsight.typical(forMake: "Geely")?.id == "geely-monjaro")
+        #expect(ModelInsight.typical(forMake: "НетТакой") == nil)
     }
 
     @Test func catalogCopyDoesNotMentionAvBy() {
@@ -78,10 +91,19 @@ struct ModelInsightTests {
         #expect(!blob.contains("av.by"))
         #expect(!blob.contains("avby"))
     }
+}
 
-    @Test func unknownMakeFallsBack() {
-        let insight = ModelInsight.lookup(make: "НетТакой")
-        #expect(insight.overall == 8.5)
-        #expect(insight.pros.isEmpty)
+struct ListingTrustTests {
+    @Test func verifiedSealOnlyForTopListings() {
+        #expect(!ListingTrust.showsVerifiedSeal(listingFixture(isTop: false)))
+        #expect(ListingTrust.showsVerifiedSeal(listingFixture(isTop: true)))
+        #expect(!ListingTrust.showsSyntheticEquipment(listingFixture()))
+    }
+
+    @Test func insightUsesExactModelNotMakeFallback() {
+        let passat = listingFixture(make: "Volkswagen", model: "Passat", year: 2018)
+        let tiguan = listingFixture(make: "Volkswagen", model: "Tiguan", year: 2021)
+        #expect(ListingTrust.insight(for: passat) == nil)
+        #expect(ListingTrust.insight(for: tiguan)?.id == "vw-tiguan")
     }
 }

@@ -2,12 +2,12 @@ import SwiftUI
 
 struct VinCheckView: View {
     @Environment(\.dismiss) private var dismiss
-    var initialVin: String = "X7LLG1234PA987654"
+    var initialVin: String = ""
     @State private var vin: String
     @State private var searching = false
     @State private var ready = false
 
-    init(initialVin: String = "X7LLG1234PA987654") {
+    init(initialVin: String = "") {
         self.initialVin = initialVin
         _vin = State(initialValue: String(initialVin.prefix(17)))
     }
@@ -95,10 +95,10 @@ struct VinCheckView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Юридически чист • Без ограничений и залогов")
+                    Text("Демо-отчёт: шаблон «чист» для любого VIN")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(AutoraTheme.emerald)
-                    Text("VIN: \(report.vin)")
+                        .foregroundStyle(AutoraTheme.ink)
+                    Text("Не база ГАИ. VIN: \(report.vin)")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(AutoraTheme.muted)
                 }
@@ -110,7 +110,7 @@ struct VinCheckView: View {
                     .background(.white, in: Capsule())
             }
             .padding(14)
-            .background(AutoraTheme.emerald.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(AutoraTheme.amber.opacity(0.16), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 statusCell("Розыск (ГАИ РБ)", report.wantedOK ? "Не числится" : "Проверить")

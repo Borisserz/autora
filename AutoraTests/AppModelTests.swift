@@ -25,10 +25,11 @@ struct AppModelTests {
     }
 
     @Test func filteredHidesExpiredListings() {
-        let fresh = listingFixture(id: "fresh", bumpedAt: 1_000_000)
-        let stale = listingFixture(id: "stale", bumpedAt: 1_000_000 - BumpPolicy.lifetime)
-        let app = model(listings: [fresh, stale], now: 1_000_000)
-        #expect(app.filtered.map(\.id) == ["fresh"])
+        let fresh = listingFixture(id: "fresh", isDemo: false, bumpedAt: 1_000_000)
+        let stale = listingFixture(id: "stale", isDemo: false, bumpedAt: 1_000_000 - BumpPolicy.lifetime)
+        let staleDemo = listingFixture(id: "demo", isDemo: true, bumpedAt: 1_000_000 - BumpPolicy.lifetime)
+        let app = model(listings: [fresh, stale, staleDemo], now: 1_000_000)
+        #expect(app.filtered.map(\.id) == ["fresh", "demo"])
     }
 
     @Test func applySavedSearchCopiesFullCriteria() {

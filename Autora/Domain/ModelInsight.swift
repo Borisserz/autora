@@ -294,42 +294,18 @@ enum ModelInsight {
         )
     ]
 
-    private static let fallback = Insight(
-        id: "fallback",
-        make: "",
-        model: "",
-        year: 0,
-        avgPriceUSD: 0,
-        priceRange: "—",
-        liquidityDays: 18,
-        depreciationPerYear: 7,
-        fuelType: "—",
-        fuelConsumption: "—",
-        monthlyUSD: 180,
-        powerHp: 0,
-        acceleration0100: 0,
-        trunkVolumeL: 0,
-        parts: 8.0,
-        comfort: 8.0,
-        reliability: 8.0,
-        overall: 8.5,
-        tag: "Рынок РБ",
-        pros: [],
-        cons: [],
-        idealFor: "",
-        weakSpots: ""
-    )
+    static func lookup(make: String, model: String = "", year: Int? = nil) -> Insight? {
+        let needle = model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !make.isEmpty, !needle.isEmpty else { return nil }
+        guard let hit = catalog.first(where: {
+            $0.make == make && $0.model.lowercased().contains(needle)
+        }) else { return nil }
+        if let year, abs(hit.year - year) > 3 { return nil }
+        return hit
+    }
 
-    static func lookup(make: String, model: String = "") -> Insight {
-        let needle = model.lowercased()
-        if !needle.isEmpty,
-           let hit = catalog.first(where: { $0.make == make && $0.model.lowercased().contains(needle) }) {
-            return hit
-        }
-        if let hit = catalog.first(where: { $0.make == make }) {
-            return hit
-        }
-        return fallback
+    static func typical(forMake make: String) -> Insight? {
+        catalog.first { $0.make == make }
     }
 
     static var makes: [String] {

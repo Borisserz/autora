@@ -12,8 +12,15 @@ final class AppModel {
         didSet { persistIfReady { persistSavedSearches() } }
     }
     var fx = FXRate(usdBYN: 2.99)
-    var criteria = SearchCriteria()
-    var sort: ListingSort = .newest
+    var criteria = SearchCriteria() {
+        didSet { persistIfReady { persistCriteria() } }
+    }
+    var sort: ListingSort = .newest {
+        didSet { persistIfReady { persistSort() } }
+    }
+    var editingListingID: String? {
+        didSet { persistIfReady { persistEditingID() } }
+    }
     var showUSD = true {
         didSet { persistIfReady { defaults.set(showUSD, forKey: Keys.showUSD) } }
     }
@@ -60,7 +67,7 @@ final class AppModel {
         let timestamp = now()
         let base = ListingFilter.apply(criteria, to: listings, usdBYN: fx.usdBYN)
             .filter { !blockedSellerIDs.contains($0.sellerId) }
-            .filter { !BumpPolicy.isExpired(bumpedAt: $0.bumpedAt, now: timestamp) }
+            .filter { !BumpPolicy.isExpired(bumpedAt: $0.bumpedAt, now: timestamp, isDemo: $0.isDemo) }
         return sort.apply(base)
     }
 
@@ -108,7 +115,7 @@ final class AppModel {
         } else {
             showUSD = defaults.bool(forKey: Keys.showUSD)
         }
-        compareIDs = defaults.stringArray(forKey: Keys.compare) ?? []
+        compareIDs = Array((defaults.stringArray(forKey: Keys.compare) ?? []).prefix(CompareSet.limit))
         session = loadSession()
         myListings = loadMyListings()
         listings = CatalogMerge.listings(seed: loaded.listings, mine: myListings)
@@ -118,6 +125,9 @@ final class AppModel {
             ? loaded.chats
             : CatalogMerge.chats(seed: loaded.chats, live: storedChats)
         listingDraft = loadDraft()
+        criteria = loadCriteria()
+        sort = loadSort()
+        editingListingID = defaults.string(forKey: Keys.editingListing)
         isHydrating = false
     }
 
@@ -327,6 +337,41 @@ final class AppModel {
 
     func clearListingDraft() {
         listingDraft = ListingDraft()
+        editingListingID = nil
+    }
+
+    func prepareNewListing() {
+        guard editingListingID != nil else { return }
+        editingListingID = nil
+        listingDraft = ListingDraft()
+    }
+
+    func beginEdit(_ id: String) {
+        guard let listing = listing(id: id) else { return }
+        listingDraft = ListingDraft.from(listing)
+        editingListingID = id
+        pendingOpenWizard = true
+        selectedTab = .listings
+    }
+
+    func saveEditedListing() throws {
+        guard case .signedIn(let profile) = session else { throw AppError.needAuth }
+        guard !profile.phone.isEmpty else { throw AppError.needPhone }
+        guard let id = editingListingID, let existing = listing(id: id) else { return }
+        let updated = try listingDraft.apply(onto: existing, seller: profile, now: now())
+        mutateListing(id) { $0 = updated }
+        clearListingDraft()
+    }
+
+    func deferredOffer(for listingID: String) -> (label: String, text: String)? {
+        guard let purchase = deferredPurchase(id: listingID),
+              let listing = listing(id: listingID) else { return nil }
+        let text = ChatDraft.priceOffer(
+            make: listing.make,
+            model: listing.model,
+            targetUSD: purchase.targetPriceUSD
+        )
+        return ("Предложить $\(purchase.targetPriceUSD)", text)
     }
 
     func report(listingID: String, reason: String) {
@@ -469,6 +514,24 @@ final class AppModel {
         }
     }
 
+    private func persistCriteria() {
+        if let data = try? JSONEncoder().encode(criteria) {
+            defaults.set(data, forKey: Keys.criteria)
+        }
+    }
+
+    private func persistSort() {
+        defaults.set(sort.rawValue, forKey: Keys.sort)
+    }
+
+    private func persistEditingID() {
+        if let editingListingID {
+            defaults.set(editingListingID, forKey: Keys.editingListing)
+        } else {
+            defaults.removeObject(forKey: Keys.editingListing)
+        }
+    }
+
     private func loadPersistedSearches() -> [SavedSearch] {
         guard let data = defaults.data(forKey: Keys.searches) else { return [] }
         return (try? JSONDecoder().decode([SavedSearch].self, from: data)) ?? []
@@ -508,6 +571,22 @@ final class AppModel {
         return draft
     }
 
+    private func loadCriteria() -> SearchCriteria {
+        guard let data = defaults.data(forKey: Keys.criteria),
+              let decoded = try? JSONDecoder().decode(SearchCriteria.self, from: data) else {
+            return SearchCriteria()
+        }
+        return decoded
+    }
+
+    private func loadSort() -> ListingSort {
+        guard let raw = defaults.string(forKey: Keys.sort),
+              let sort = ListingSort(rawValue: raw) else {
+            return .newest
+        }
+        return sort
+    }
+
     private func mergeSearches(seed: [SavedSearch], stored: [SavedSearch]) -> [SavedSearch] {
         if defaults.data(forKey: Keys.searches) != nil {
             return stored
@@ -530,6 +609,9 @@ final class AppModel {
         static let showUSD = "autora.showUSD"
         static let compare = "autora.compare"
         static let draft = "autora.draft"
+        static let criteria = "autora.criteria"
+        static let sort = "autora.sort"
+        static let editingListing = "autora.editingListing"
     }
 }
 
@@ -556,7 +638,7 @@ struct UserProfile: Equatable, Codable, Sendable {
 }
 
 enum AppError: LocalizedError, Equatable {
-    case needAuth, needPhone, needPhoto, needMake, needPrice
+    case needAuth, needPhone, needPhoto, needMake, needPrice, needVIN
     var errorDescription: String? {
         switch self {
         case .needAuth: "Войдите, чтобы подать объявление"
@@ -564,6 +646,7 @@ enum AppError: LocalizedError, Equatable {
         case .needPhoto: "Добавьте хотя бы одно фото"
         case .needMake: "Укажите марку и модель"
         case .needPrice: "Укажите цену в рублях"
+        case .needVIN: "VIN — 17 символов или оставьте пустым"
         }
     }
 }

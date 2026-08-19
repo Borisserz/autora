@@ -33,16 +33,26 @@ struct ListingDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 StretchyCatalogPhoto(urls: listing.photoURLs, title: listing.title)
                     .overlay(alignment: .topLeading) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.seal.fill")
-                            Text("Проверено CoolAV • Юр. чистота")
+                        if ListingTrust.showsVerifiedSeal(listing) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.seal.fill")
+                                Text("ТОП на CoolAV")
+                            }
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(AutoraTheme.emerald)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .padding(12)
+                        } else if listing.isDemo {
+                            Text("Демо-объявление")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .padding(12)
                         }
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(AutoraTheme.emerald)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .padding(12)
                     }
                 VStack(alignment: .leading, spacing: 14) {
                     priceCard
@@ -51,7 +61,9 @@ struct ListingDetailView: View {
                     leaseCard
                     specGrid
                     insightCard
-                    equipmentBlock
+                    if ListingTrust.showsSyntheticEquipment(listing) {
+                        equipmentBlock
+                    }
                     if !listing.description.isEmpty {
                         descriptionBlock
                     }
@@ -107,13 +119,10 @@ struct ListingDetailView: View {
             Text(chatError ?? "")
         }
         .sheet(isPresented: $showVIN) {
-            VinCheckView(initialVin: listing.vin ?? "X7LLG1234PA987654")
+            VinCheckView(initialVin: listing.vin ?? "")
         }
         .sheet(isPresented: $showModelCatalog) {
-            let id = ModelInsight.lookup(make: listing.make, model: listing.model).id
-            ModelCatalogView(
-                initialID: ModelInsight.catalog.contains(where: { $0.id == id }) ? id : nil
-            )
+            ModelCatalogView(initialID: ListingTrust.insight(for: listing)?.id)
         }
         .onAppear { model.markViewed(listing.id) }
     }
@@ -133,20 +142,19 @@ struct ListingDetailView: View {
                 Text("−\(percent)% ниже рынка РБ")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(AutoraTheme.emerald)
+            } else if let badge = MarketPrice.badge(for: listing, in: model.listings) {
+                Text(MarketPrice.caption(badge))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(badge == "ниже рынка" ? AutoraTheme.emerald : .white.opacity(0.8))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        (badge == "ниже рынка" ? AutoraTheme.emerald : Color.white).opacity(0.16),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
             }
             HStack(spacing: 8) {
-                if let badge = MarketPrice.badge(for: listing, in: model.listings) {
-                    Text(MarketPrice.caption(badge))
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(badge == "ниже рынка" ? AutoraTheme.emerald : .white.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            (badge == "ниже рынка" ? AutoraTheme.emerald : Color.white).opacity(0.16),
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        )
-                }
-                Text("📍 \(listing.city)")
+                Text(listing.city)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
                 if listing.isTop {
@@ -365,7 +373,7 @@ struct ListingDetailView: View {
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.white)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(ListingSpecs.equipment, id: \.self) { item in
+                ForEach(listing.equipment ?? [], id: \.self) { item in
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "checkmark")
                             .font(.caption2.weight(.bold))
@@ -386,42 +394,55 @@ struct ListingDetailView: View {
     }
 
     private var insightCard: some View {
-        let insight = ModelInsight.lookup(make: listing.make, model: listing.model)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(insight.tag)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AutoraTheme.amber)
-                Spacer()
-                Text(String(format: "%.1f / 10", insight.overall))
-                    .font(.title3.weight(.bold).monospacedDigit())
-                    .foregroundStyle(.white)
-            }
-            Text("Содержание ~$\(insight.monthlyUSD) в месяц")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.78))
-            scoreBar("Запчасти в РБ", insight.parts)
-            scoreBar("Комфорт", insight.comfort)
-            scoreBar("Надёжность", insight.reliability)
-            if let pro = insight.pros.first {
-                Text("Плюс: \(pro)")
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            if let insight = ListingTrust.insight(for: listing) {
+                HStack {
+                    Text(insight.tag)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AutoraTheme.amber)
+                    Spacer()
+                    Text(String(format: "%.1f / 10", insight.overall))
+                        .font(.title3.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                }
+                Text(insight.model)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.88))
                     .fixedSize(horizontal: false, vertical: true)
-            }
-            if !insight.weakSpots.isEmpty {
-                Text("Слабые места: \(insight.weakSpots)")
+                Text("Содержание ~$\(insight.monthlyUSD) в месяц · каталог CoolAV, не этот экземпляр")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+                scoreBar("Запчасти в РБ", insight.parts)
+                scoreBar("Комфорт", insight.comfort)
+                scoreBar("Надёжность", insight.reliability)
+                if let pro = insight.pros.first {
+                    Text("Плюс: \(pro)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !insight.weakSpots.isEmpty {
+                    Text("Слабые места: \(insight.weakSpots)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text("Модель не в каталоге аналитики")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Text("Плюсы и слабые места показываем только при точном совпадении марки и модели, без подстановки «похожего» авто.")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.72))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button("Плюсы, минусы и каталог моделей") {
+            Button("Каталог моделей CoolAV") {
                 showModelCatalog = true
             }
             .font(.caption.weight(.bold))
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .frame(minHeight: 44)
             .background(AutoraTheme.emerald, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .padding(16)
@@ -450,13 +471,15 @@ struct ListingDetailView: View {
             ("Год", "\(listing.year) г."),
             ("Пробег", "\(listing.mileageKm.formatted()) км"),
             ("Двигатель", ListingSpecs.engineLine(listing)),
-            ("Разгон 0–100", String(format: "%.1f сек", ListingSpecs.acceleration0100(listing))),
             ("КПП", listing.transmission),
             ("Привод", listing.drivetrain),
             ("Топливо", listing.fuel),
             ("Кузов", listing.body),
             ("Город", "\(listing.city), \(listing.region)")
         ]
+        if let insight = ListingTrust.insight(for: listing) {
+            items.append(("Разгон 0–100", String(format: "%.1f сек · каталог", insight.acceleration0100)))
+        }
         if listing.hasVIN, let vin = listing.vin { items.append(("VIN", vin)) }
         return items
     }
@@ -478,28 +501,29 @@ struct ListingDetailView: View {
     private var vinBanner: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Юридический отчёт CoolAV")
+                Text("Проверка VIN")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AutoraTheme.emerald)
+                    .foregroundStyle(.white)
                 Text(listing.hasVIN
-                     ? "VIN проверен: ограничений на регистрацию нет."
-                     : "Проверьте историю по базам ГАИ Беларуси.")
+                     ? "VIN указан продавцом. Отчёт CoolAV — демо, не база ГАИ."
+                     : "VIN не указан. Можно открыть демо-проверку без юридических выводов.")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             Button("VIN") { showVIN = true }
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .frame(minHeight: 44)
                 .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .padding(16)
-        .background(AutoraTheme.emerald.opacity(0.12), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(AutoraTheme.emerald.opacity(0.35), lineWidth: 1)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         }
     }
 

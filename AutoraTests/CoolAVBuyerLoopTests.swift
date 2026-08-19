@@ -96,6 +96,14 @@ struct MarketDealTests {
         #expect(MarketDeal.radar(in: all).map(\.id) == ["hot", "mild"])
     }
 
+    @Test func discountRequiresSameEightPercentThresholdAsMarketBadge() {
+        let peers = (1...5).map { listingFixture(id: "p\($0)", make: "Audi", model: "A4", year: 2018, price: 10_000) }
+        let slight = listingFixture(id: "s", make: "Audi", model: "A4", year: 2018, price: 9_600)
+        #expect(MarketPrice.badge(for: slight, in: peers + [slight]) == "около рынка")
+        #expect(MarketDeal.discountPercent(for: slight, in: peers + [slight]) == nil)
+        #expect(MarketDeal.radar(in: peers + [slight]).isEmpty)
+    }
+
     @Test func lonelyListingHasNoDeal() {
         let lonely = listingFixture(id: "d")
         #expect(MarketDeal.discountPercent(for: lonely, in: [lonely]) == nil)

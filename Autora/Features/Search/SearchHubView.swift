@@ -40,7 +40,10 @@ struct SearchHubView: View {
                         HubCatalogHeader()
                             .id("catalog")
                         if !MarketDeal.radar(in: model.listings).isEmpty {
-                            MarketRadarStrip { showRadar = true }
+                            MarketRadarStrip(
+                                onOpen: { showRadar = true },
+                                onSelect: { path.append($0) }
+                            )
                         }
                         if let loadError = model.loadError {
                             EmptyStateView(
@@ -708,6 +711,7 @@ struct MarketTickerView: View {
 private struct MarketRadarStrip: View {
     @Environment(AppModel.self) private var model
     var onOpen: () -> Void
+    var onSelect: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -717,31 +721,66 @@ private struct MarketRadarStrip: View {
                 Spacer()
                 Button("Все", action: onOpen)
                     .font(.caption.weight(.semibold))
+                    .frame(minHeight: 44)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(Array(MarketDeal.radar(in: model.listings).prefix(6))) { listing in
-                        let percent = MarketDeal.discountPercent(for: listing, in: model.listings) ?? 0
-                        let price = PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("−\(percent)%")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(AutoraTheme.emerald)
-                            Text(listing.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(2)
-                                .foregroundStyle(AutoraTheme.ink)
-                            Text(price.primary)
-                                .font(.footnote.weight(.bold).monospacedDigit())
+                        Button {
+                            onSelect(listing.id)
+                        } label: {
+                            radarCard(listing)
                         }
-                        .frame(width: 148, alignment: .leading)
-                        .padding(10)
-                        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .buttonStyle(PressableInkStyle())
+                        .accessibilityLabel(radarLabel(listing))
                     }
                 }
             }
         }
         .padding(.horizontal, AutoraTheme.pageGutter)
         .padding(.vertical, 12)
+    }
+
+    private func radarCard(_ listing: Listing) -> some View {
+        let percent = MarketDeal.discountPercent(for: listing, in: model.listings) ?? 0
+        let price = PriceDisplay.pair(byn: listing.priceBYN, rate: model.fx.usdBYN, showUSD: model.showUSD)
+        return VStack(alignment: .leading, spacing: 0) {
+            Group {
+                if let url = listing.photoURLs.first {
+                    AutoraRemotePhoto(urlString: url, height: 88, accessibilityText: nil)
+                } else {
+                    Rectangle().fill(AutoraTheme.surface)
+                }
+            }
+            .frame(height: 88)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("−\(percent)%")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AutoraTheme.emerald)
+                Text(listing.title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(2)
+                    .foregroundStyle(AutoraTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(price.primary)
+                    .font(.footnote.weight(.bold).monospacedDigit())
+                    .foregroundStyle(AutoraTheme.ink)
+            }
+            .padding(10)
+        }
+        .frame(width: 168, alignment: .leading)
+        .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AutoraTheme.hairline, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func radarLabel(_ listing: Listing) -> String {
+        let percent = MarketDeal.discountPercent(for: listing, in: model.listings) ?? 0
+        return "\(listing.title), минус \(percent) процентов, открыть объявление"
     }
 }

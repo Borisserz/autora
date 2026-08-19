@@ -105,17 +105,19 @@ struct ListingCardView: View {
             .padding(.trailing, 12)
         }
         .overlay(alignment: .bottomLeading) {
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(AutoraTheme.emerald)
-                Text(CoolAVCopy.verified)
+            if ListingTrust.showsVerifiedSeal(listing) {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(AutoraTheme.emerald)
+                    Text(CoolAVCopy.verified)
+                }
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.white.opacity(0.95), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(12)
             }
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(Color(red: 6 / 255, green: 95 / 255, blue: 70 / 255))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.white.opacity(0.95), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .padding(12)
         }
     }
 

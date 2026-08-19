@@ -111,7 +111,7 @@ enum ListingFilter {
     }
 }
 
-enum ListingSort: String, CaseIterable, Identifiable, Sendable {
+enum ListingSort: String, Codable, CaseIterable, Identifiable, Sendable {
     case newest, cheapest, expensive, mileage
     var id: String { rawValue }
 

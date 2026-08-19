@@ -31,8 +31,14 @@ struct PostWizardView: View {
                     switch step {
                     case 0: photosStep
                     case 1:
-                        TextField("VIN (необязательно)", text: $model.listingDraft.vin)
-                            .textInputAutocapitalization(.characters)
+                        VStack(alignment: .leading, spacing: 8) {
+                            TextField("VIN (необязательно)", text: vinBinding)
+                                .textInputAutocapitalization(.characters)
+                                .font(.body.monospacedDigit())
+                            Text("\(ListingDraft.normalizedVIN(model.listingDraft.vin).count)/17 · пустой или 17 символов")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(AutoraTheme.muted)
+                        }
                     case 2:
                         ScrollView {
                             specStep
@@ -70,7 +76,7 @@ struct PostWizardView: View {
                     }
                     .buttonStyle(PressableInkStyle())
                     .accessibilityIdentifier("autora.wizard.back")
-                    Button(step < 5 ? "Далее" : "Опубликовать") {
+                    Button(step < 5 ? "Далее" : (model.editingListingID != nil ? "Сохранить" : "Опубликовать")) {
                         advance()
                     }
                     .font(.body.weight(.semibold))
@@ -84,7 +90,7 @@ struct PostWizardView: View {
             }
             .padding(20)
             .paperCanvas()
-            .navigationTitle("Подать объявление")
+            .navigationTitle(model.editingListingID != nil ? "Редактировать" : "Подать объявление")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Закрыть") { dismiss() }
@@ -106,6 +112,11 @@ struct PostWizardView: View {
                     appendPhoto(data)
                 }
                 .ignoresSafeArea()
+            }
+            .onAppear {
+                if let id = model.editingListingID {
+                    listingID = id
+                }
             }
         }
     }
@@ -197,11 +208,30 @@ struct PostWizardView: View {
             TextField("Пробег, км", value: $model.listingDraft.mileageKm, format: .number)
                 .keyboardType(.numberPad)
                 .font(.body.monospacedDigit())
+            HStack(spacing: 6) {
+                ForEach(ListingCondition.allCases, id: \.self) { item in
+                    Button(item.title) { model.listingDraft.condition = item }
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(model.listingDraft.condition == item ? AutoraTheme.canvas : AutoraTheme.ink)
+                        .background(
+                            model.listingDraft.condition == item ? AutoraTheme.ink : AutoraTheme.surface,
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
+                        .buttonStyle(PressableInkStyle())
+                }
+            }
             chipPick("Руль", options: ["левый", "правый"], value: wheelLabel)
             Toggle("На учёте в РБ", isOn: $model.listingDraft.registered)
             Toggle("Растаможен", isOn: $model.listingDraft.customsCleared)
             Toggle("Торг", isOn: $model.listingDraft.bargaining)
             Toggle("Обмен", isOn: $model.listingDraft.exchange)
+            Text("Опции")
+                .font(.footnote)
+                .foregroundStyle(AutoraTheme.muted)
+            ForEach(ListingSpecs.equipment, id: \.self) { item in
+                Toggle(item, isOn: equipmentBinding(item))
+            }
         }
         .onChange(of: model.listingDraft.make) { _, make in
             let models = FilterCatalog.modelsForPost(in: model.listings, make: make)
@@ -229,6 +259,28 @@ struct PostWizardView: View {
         )
     }
 
+    private var vinBinding: Binding<String> {
+        Binding(
+            get: { model.listingDraft.vin },
+            set: { model.listingDraft.vin = String(ListingDraft.normalizedVIN($0).prefix(17)) }
+        )
+    }
+
+    private func equipmentBinding(_ item: String) -> Binding<Bool> {
+        Binding(
+            get: { model.listingDraft.equipment.contains(item) },
+            set: { isOn in
+                if isOn {
+                    if !model.listingDraft.equipment.contains(item) {
+                        model.listingDraft.equipment.append(item)
+                    }
+                } else {
+                    model.listingDraft.equipment.removeAll { $0 == item }
+                }
+            }
+        )
+    }
+
     private var priceStep: some View {
         @Bindable var model = model
         let quote = model.listingDraft.suggestedQuote(usdBYN: model.fx.usdBYN)
@@ -241,6 +293,24 @@ struct PostWizardView: View {
                 Text("\(live.primary)  \(live.secondary)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AutoraTheme.ink)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Состояние для оценки")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AutoraTheme.muted)
+                HStack(spacing: 6) {
+                    ForEach(MarketValuation.Condition.allCases) { item in
+                        Button(item.title) { model.listingDraft.valuationCondition = item }
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .foregroundStyle(model.listingDraft.valuationCondition == item ? AutoraTheme.canvas : AutoraTheme.ink)
+                            .background(
+                                model.listingDraft.valuationCondition == item ? AutoraTheme.ink : AutoraTheme.surface,
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            )
+                            .buttonStyle(PressableInkStyle())
+                    }
+                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("AI-оценка CoolAV")
@@ -362,9 +432,13 @@ struct PostWizardView: View {
             return
         }
         do {
-            let listing = try model.listingDraft.makeListing(id: listingID, seller: profile, now: model.now())
-            try model.publishDraft(listing)
-            model.clearListingDraft()
+            if model.editingListingID != nil {
+                try model.saveEditedListing()
+            } else {
+                let listing = try model.listingDraft.makeListing(id: listingID, seller: profile, now: model.now())
+                try model.publishDraft(listing)
+                model.clearListingDraft()
+            }
             dismiss()
         } catch {
             self.error = error.localizedDescription

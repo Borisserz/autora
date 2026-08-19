@@ -4,9 +4,16 @@ enum ListingStatus: String, Codable, Equatable, Sendable {
     case active, sold, draft, inactive
 }
 
-enum ListingCondition: String, Codable, Equatable, Sendable {
+enum ListingCondition: String, Codable, Equatable, Sendable, CaseIterable {
     case used
     case newCar = "new"
+
+    var title: String {
+        switch self {
+        case .used: "С пробегом"
+        case .newCar: "Новое"
+        }
+    }
 }
 
 enum WheelSide: String, Codable, Equatable, Sendable {
@@ -53,6 +60,7 @@ struct Listing: Identifiable, Codable, Equatable, Sendable, Hashable {
     var phoneReveals: Int
     var bumpedAt: TimeInterval
     var createdAt: TimeInterval
+    var equipment: [String]? = nil
 
     var title: String { "\(make) \(model)" }
 

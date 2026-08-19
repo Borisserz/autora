@@ -17,6 +17,7 @@ struct FiltersSheet: View {
                         anyLabel: "Любое"
                     )
                     sliders
+                    conditionChips
                     extraFlags
                     chipSection("Область", options: FilterCatalog.regions(in: model.listings), value: Bindable(model).criteria.region, anyLabel: "Любая")
                     chipSection("Город", options: FilterCatalog.cities(in: model.listings), value: Bindable(model).criteria.city, anyLabel: "Любой")
@@ -74,6 +75,12 @@ struct FiltersSheet: View {
                 step: 1
             )
             labeledSlider(
+                title: priceFromTitle,
+                range: priceToRange,
+                value: priceFromBinding,
+                step: model.showUSD ? 100 : 500
+            )
+            labeledSlider(
                 title: priceToTitle,
                 range: priceToRange,
                 value: priceToBinding,
@@ -83,6 +90,15 @@ struct FiltersSheet: View {
             compactField("Объём от, л×10", value: engineBinding)
             compactField("Мощность от, л.с.", value: Bindable(model).criteria.powerFrom)
         }
+    }
+
+    private var priceFromTitle: String {
+        guard let price = model.criteria.priceFrom else { return "Цена от любая" }
+        if model.showUSD {
+            let usd = PriceConverter.filterUSD(fromBYN: price, rate: model.fx.usdBYN)
+            return "Цена от $\(usd.formatted()) справочно"
+        }
+        return "Цена от \(price.formatted()) Br"
     }
 
     private var priceToTitle: String {
@@ -96,6 +112,29 @@ struct FiltersSheet: View {
 
     private var priceToRange: ClosedRange<Int> {
         model.showUSD ? 300...27_000 : 1_000...80_000
+    }
+
+    private var priceFromBinding: Binding<Int?> {
+        Binding(
+            get: {
+                guard let byn = model.criteria.priceFrom else { return nil }
+                if model.showUSD {
+                    return PriceConverter.filterUSD(fromBYN: byn, rate: model.fx.usdBYN)
+                }
+                return byn
+            },
+            set: { newValue in
+                guard let newValue else {
+                    model.criteria.priceFrom = nil
+                    return
+                }
+                if model.showUSD {
+                    model.criteria.priceFrom = PriceConverter.byn(fromUSD: Double(newValue), rate: model.fx.usdBYN)
+                } else {
+                    model.criteria.priceFrom = newValue
+                }
+            }
+        )
     }
 
     private var priceToBinding: Binding<Int?> {
@@ -119,6 +158,24 @@ struct FiltersSheet: View {
                 }
             }
         )
+    }
+
+    private var conditionChips: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Состояние")
+                .font(.footnote)
+                .foregroundStyle(AutoraTheme.muted)
+            FlowChips {
+                filterChip("Любое", selected: model.criteria.condition == nil) {
+                    model.criteria.condition = nil
+                }
+                ForEach(ListingCondition.allCases, id: \.self) { item in
+                    filterChip(item.title, selected: model.criteria.condition == item) {
+                        model.criteria.condition = model.criteria.condition == item ? nil : item
+                    }
+                }
+            }
+        }
     }
 
     private var extraFlags: some View {

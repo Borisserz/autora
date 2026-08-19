@@ -41,6 +41,14 @@ struct MarketValuationTests {
     }
 }
 
+struct MarketLiquidityTitleTests {
+    @Test func daysMapToHonestRussianBands() {
+        #expect(MarketValuation.liquidityTitle(days: 12) == "высокая")
+        #expect(MarketValuation.liquidityTitle(days: 18) == "средняя")
+        #expect(MarketValuation.liquidityTitle(days: 30) == "ниже средней")
+    }
+}
+
 struct LeaseQuoteTests {
     @Test func monthlyPaymentMatchesSiteInterestRule() {
         let monthly = LeaseQuote.monthlyBYN(

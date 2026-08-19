@@ -18,6 +18,12 @@ struct BumpPolicyTests {
         #expect(BumpPolicy.hoursUntilBump(lastBumped: t, now: t + 19 * 3600) == 1)
         #expect(BumpPolicy.hoursUntilBump(lastBumped: t, now: t + 20 * 3600) == 0)
     }
+
+    @Test func demoListingsNeverExpire() {
+        let t: TimeInterval = BumpPolicy.lifetime + 1
+        #expect(BumpPolicy.isExpired(bumpedAt: 0, now: t, isDemo: true) == false)
+        #expect(BumpPolicy.isExpired(bumpedAt: 0, now: t, isDemo: false) == true)
+    }
 }
 
 struct ListingSortTests {

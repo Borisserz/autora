@@ -1,7 +1,7 @@
 import Foundation
 
 enum CompareSet {
-    static let limit = 3
+    static let limit = 2
 
     static func toggling(_ id: String, in ids: [String]) -> [String] {
         if let idx = ids.firstIndex(of: id) {
