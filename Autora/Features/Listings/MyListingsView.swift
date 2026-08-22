@@ -16,7 +16,9 @@ struct MyListingsView: View {
                         text: "Войдите, чтобы подавать, поднимать и править объявления.",
                         illustration: .listings,
                         actionTitle: "Войти",
-                        action: { model.signInDemo() }
+                        action: {
+                            if RemoteChatStore.isLive { model.selectedTab = .profile } else { model.signInDemo() }
+                        }
                     )
                 } else {
                     desk
@@ -67,7 +69,7 @@ struct MyListingsView: View {
     }
 
     private func signInAndPost() {
-        if !model.session.isSignedIn { model.signInDemo() }
+        if !model.session.isSignedIn, !RemoteChatStore.isLive { model.signInDemo() }
         showWizard = true
     }
 

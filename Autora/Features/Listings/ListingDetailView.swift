@@ -113,7 +113,9 @@ struct ListingDetailView: View {
         )) {
             Button("OK", role: .cancel) {}
             if chatError == ChatStartError.needAuth.localizedDescription {
-                Button("Войти") { model.signInDemo() }
+                Button("Войти") {
+                    if RemoteChatStore.isLive { model.selectedTab = .profile } else { model.signInDemo() }
+                }
             }
         } message: {
             Text(chatError ?? "")

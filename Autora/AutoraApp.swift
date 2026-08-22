@@ -2,7 +2,12 @@ import SwiftUI
 
 @main
 struct AutoraApp: App {
-    @State private var model = UITestLaunch.makeModel()
+    @State private var model: AppModel
+
+    init() {
+        RemoteChatStore.configure()
+        _model = State(initialValue: UITestLaunch.makeModel())
+    }
 
     var body: some Scene {
         WindowGroup {

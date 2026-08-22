@@ -34,6 +34,16 @@ struct InboxDeskTests {
         #expect(InboxDesk.listings(all, tab: .offers, deferredIDs: ["c"]).map(\.id) == ["offer"])
         #expect(InboxDesk.preview(old) == "Вы: привет")
         #expect(InboxDesk.preview(freshUnread) == "завтра")
+        let fromSite = ChatThread(
+            id: "site",
+            listingId: "d",
+            listingTitle: "D",
+            peerName: "Сайт",
+            unread: 0,
+            messages: [],
+            lastText: "с CoolAV"
+        )
+        #expect(InboxDesk.preview(fromSite) == "с CoolAV")
         #expect(InboxDesk.headline(unread: 3, threads: 5) == "3 непрочитанных · 5 переписок")
         #expect(InboxDesk.headline(unread: 0, threads: 2) == "2 переписки")
         #expect(InboxTab.allCases.map(\.title) == ["Все", "Новые", "К цели"])

@@ -47,7 +47,7 @@ enum AutoraImageCache {
         if let cached = memory.object(forKey: urlString as NSString) {
             return cached
         }
-        guard let url = URL(string: urlString) else { return nil }
+        guard let url = ListingPhotoURL.resolve(urlString) else { return nil }
         let data: Data
         if url.isFileURL {
             guard let file = try? Data(contentsOf: url) else { return nil }

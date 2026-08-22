@@ -16,7 +16,7 @@ enum InboxTab: Int, CaseIterable, Identifiable, Codable, Sendable {
 
 enum InboxDesk {
     static func lastActivity(_ thread: ChatThread) -> TimeInterval {
-        thread.messages.last?.at ?? 0
+        thread.messages.last?.at ?? thread.lastAt
     }
 
     static func sorted(_ threads: [ChatThread]) -> [ChatThread] {
@@ -39,8 +39,11 @@ enum InboxDesk {
     }
 
     static func preview(_ thread: ChatThread) -> String {
-        guard let last = thread.messages.last else { return "Напишите первое сообщение" }
-        return last.fromMe ? "Вы: \(last.text)" : last.text
+        if let last = thread.messages.last {
+            return last.fromMe ? "Вы: \(last.text)" : last.text
+        }
+        if !thread.lastText.isEmpty { return thread.lastText }
+        return "Напишите первое сообщение"
     }
 
     static func headline(unread: Int, threads: Int) -> String {

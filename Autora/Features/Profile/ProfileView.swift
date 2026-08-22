@@ -10,6 +10,9 @@ struct ProfileView: View {
     @State private var showValuation = false
     @State private var showCompare = false
     @State private var showCatalog = false
+    @State private var email = ""
+    @State private var password = ""
+    @State private var authError = ""
 
     private var snap: ProfileSnapshot { model.profileSnapshot }
 
@@ -114,15 +117,54 @@ struct ProfileView: View {
                 .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                 .buttonStyle(PressableInkStyle())
             } else {
-                Button("Войти (демо)") {
-                    model.signInDemo()
+                TextField("Email как на CoolAV.by", text: $email)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .padding(12)
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                SecureField("Пароль", text: $password)
+                    .padding(12)
+                    .background(AutoraTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                if !authError.isEmpty {
+                    Text(authError)
+                        .font(.footnote)
+                        .foregroundStyle(AutoraTheme.ink)
+                }
+                Button("Создать аккаунт") {
+                    Task {
+                        do {
+                            try await model.registerRemote(email: email, password: password, name: email)
+                            authError = ""
+                        } catch {
+                            authError = error.localizedDescription
+                        }
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AutoraTheme.ink)
+                Button("Войти (тот же аккаунт, что сайт)") {
+                    Task {
+                        do {
+                            try await model.signInRemote(email: email, password: password)
+                            authError = ""
+                        } catch {
+                            authError = error.localizedDescription
+                        }
+                    }
                 }
                 .font(.body.weight(.bold))
                 .foregroundStyle(AutoraTheme.canvas)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(AutoraTheme.ink, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                 .buttonStyle(PressableInkStyle())
-                Text("Apple / Google на TestFlight без plist Firebase — локальная сессия. Нужна, чтобы продавать и писать.")
+                Button("Войти локально (демо, без сайта)") {
+                    model.signInDemo()
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AutoraTheme.muted)
+                Text(RemoteChatStore.isLive
+                     ? "Чат уйдёт в autora_chats / autora_messages — тот же Firebase, что CoolAV.by."
+                     : "Чтобы писать с тем же аккаунтом, что сайт: Xcode → Add Package firebase-ios-sdk (Auth, Firestore) и GoogleService-Info.plist.")
                     .font(.footnote)
                     .foregroundStyle(AutoraTheme.muted)
                     .fixedSize(horizontal: false, vertical: true)

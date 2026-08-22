@@ -79,6 +79,8 @@ final class AppModel {
     var now: () -> TimeInterval
     private var isHydrating = true
     private var seedChats: [ChatThread] = []
+    private var seedListings: [Listing] = []
+    private var remoteListings: [Listing] = []
     private var seedUSDBYN: Double = 2.99
 
     var filtered: [Listing] {
@@ -120,6 +122,7 @@ final class AppModel {
         }
         seedUSDBYN = loaded.fx.usdBYN
         seedChats = loaded.chats
+        seedListings = loaded.listings
         let cachedFX = defaults.object(forKey: Keys.fxCache) as? Double
         fx = NBRBRate.pick(fetched: nil, cached: cachedFX, seed: seedUSDBYN)
         favoriteIDs = Set(defaults.stringArray(forKey: Keys.favorites) ?? [])
@@ -139,7 +142,7 @@ final class AppModel {
         compareIDs = Array((defaults.stringArray(forKey: Keys.compare) ?? []).prefix(CompareSet.limit))
         session = loadSession()
         myListings = loadMyListings()
-        listings = CatalogMerge.listings(seed: loaded.listings, mine: myListings)
+        listings = CatalogMerge.listings(seed: loaded.listings, mine: myListings, remote: remoteListings)
         deferredPurchases = loadDeferred(from: listings)
         deletedChatIDs = Set(defaults.stringArray(forKey: Keys.deletedChats) ?? [])
         chats = InboxDesk.chats(
@@ -157,6 +160,29 @@ final class AppModel {
         editingListingID = defaults.string(forKey: Keys.editingListing)
         chatDrafts = loadChatDrafts()
         isHydrating = false
+        if let profile = RemoteChatStore.currentProfile() {
+            session = .signedIn(profile)
+            Task { await pullRemote(uid: profile.id) }
+        }
+        startRemoteListeners()
+    }
+
+    func startRemoteListeners() {
+        RemoteChatStore.listenListings { [weak self] remote in
+            Task { @MainActor in
+                guard let self else { return }
+                self.remoteListings = remote
+                self.listings = CatalogMerge.listings(seed: self.seedListings, mine: self.myListings, remote: remote)
+            }
+        }
+        if let uid = session.profile?.id {
+            RemoteChatStore.listenInbox(uid: uid) { [weak self] inbox in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.chats = RemoteInbox.merge(local: self.chats, remote: inbox, viewerId: uid)
+                }
+            }
+        }
     }
 
     func retryLoad() {
@@ -182,7 +208,8 @@ final class AppModel {
     }
 
     func applyCatalog(_ file: SeedFile) {
-        listings = CatalogMerge.listings(seed: file.listings, mine: myListings)
+        seedListings = file.listings
+        listings = CatalogMerge.listings(seed: file.listings, mine: myListings, remote: remoteListings)
         seedChats = file.chats
         seedUSDBYN = file.fx.usdBYN
         chats = InboxDesk.chats(
@@ -416,6 +443,45 @@ final class AppModel {
         selectedTab = .search
     }
 
+    func signInRemote(email: String, password: String) async throws {
+        let profile = try await RemoteChatStore.signIn(email: email, password: password)
+        session = .signedIn(profile)
+        chats = InboxDesk.chats(
+            seed: seedChats,
+            stored: chats,
+            deleted: deletedChatIDs,
+            isSignedIn: true
+        )
+        await pullRemote(uid: profile.id)
+        startRemoteListeners()
+    }
+
+    func registerRemote(email: String, password: String, name: String) async throws {
+        let profile = try await RemoteChatStore.register(email: email, password: password, name: name)
+        session = .signedIn(profile)
+        await pullRemote(uid: profile.id)
+        startRemoteListeners()
+    }
+
+    func pullRemote(uid: String) async {
+        let remote = await RemoteChatStore.fetchListings()
+        let inbox = await RemoteChatStore.fetchInbox(uid: uid)
+        remoteListings = remote
+        listings = CatalogMerge.listings(seed: seedListings, mine: myListings, remote: remoteListings)
+        chats = RemoteInbox.merge(local: chats, remote: inbox, viewerId: uid)
+    }
+
+    func refreshRemoteThread(_ id: String) async {
+        guard let uid = session.profile?.id else { return }
+        let messages = await RemoteChatStore.fetchMessages(threadId: id, uid: uid)
+        guard !messages.isEmpty, let idx = chats.firstIndex(where: { $0.id == id }) else { return }
+        chats[idx].messages = messages
+        if let last = messages.last {
+            chats[idx].lastText = last.text
+            chats[idx].lastAt = last.at
+        }
+    }
+
     func signInDemo() {
         session = .signedIn(
             UserProfile(id: "me-local", name: "Вы", phone: "+375291000000", isOwner: true)
@@ -429,6 +495,7 @@ final class AppModel {
     }
 
     func signOut() {
+        RemoteChatStore.signOutRemote()
         session = .guest
     }
 
@@ -463,7 +530,8 @@ final class AppModel {
         copy.bumpedAt = now()
         copy.createdAt = copy.bumpedAt
         myListings.insert(copy, at: 0)
-        listings.insert(copy, at: 0)
+        listings = CatalogMerge.listings(seed: seedListings, mine: myListings, remote: remoteListings)
+        Task { await RemoteChatStore.pushListing(copy) }
     }
 
     func clearListingDraft() {
@@ -554,9 +622,14 @@ final class AppModel {
     func sendMessage(threadID: String, text: String) {
         guard let body = ChatDraft.normalized(text) else { return }
         guard let idx = chats.firstIndex(where: { $0.id == threadID }) else { return }
-        let msg = ChatMessage(id: UUID().uuidString, fromMe: true, text: body, at: now())
+        let senderId = session.profile?.id ?? ""
+        let msg = ChatMessage(id: UUID().uuidString, fromMe: true, text: body, at: now(), senderId: senderId)
         chats[idx].messages.append(msg)
+        chats[idx].lastText = body
+        chats[idx].lastAt = msg.at
         setChatDraft("", for: threadID)
+        let thread = chats[idx]
+        Task { await RemoteChatStore.pushMessage(thread: thread, message: msg) }
     }
 
     func chatDraft(for id: String) -> String {
@@ -592,11 +665,18 @@ final class AppModel {
     func startChat(for listing: Listing) throws -> String {
         guard case .signedIn(let profile) = session else { throw ChatStartError.needAuth }
         guard listing.sellerId != profile.id else { throw ChatStartError.cannotMessageSelf }
-        if let existing = chats.first(where: { $0.listingId == listing.id }) {
+        if ChatStartError.isGhostSeller(listing.sellerId) { throw ChatStartError.ghostSeller }
+        let threadId = ChatThreadID.make(listingId: listing.id, uidA: profile.id, uidB: listing.sellerId)
+        if let existing = chats.first(where: { $0.id == threadId }) {
+            return existing.id
+        }
+        if let existing = chats.first(where: {
+            $0.listingId == listing.id && $0.participantIds.contains(profile.id)
+        }) {
             return existing.id
         }
         let thread = ChatThread(
-            id: "chat-\(listing.id)",
+            id: threadId,
             listingId: listing.id,
             listingTitle: listing.title,
             peerName: listing.sellerName,
@@ -605,6 +685,7 @@ final class AppModel {
             participantIds: [profile.id, listing.sellerId]
         )
         chats.insert(thread, at: 0)
+        Task { await RemoteChatStore.pushThread(thread) }
         return thread.id
     }
 

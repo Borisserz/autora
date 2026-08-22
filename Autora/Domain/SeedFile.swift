@@ -136,9 +136,11 @@ struct ChatThread: Identifiable, Codable, Equatable, Sendable, Hashable {
     var unread: Int
     var messages: [ChatMessage]
     var participantIds: [String]
+    var lastText: String
+    var lastAt: TimeInterval
 
     enum CodingKeys: String, CodingKey {
-        case id, listingId, listingTitle, peerName, unread, messages, participantIds
+        case id, listingId, listingTitle, peerName, unread, messages, participantIds, lastText, lastAt
     }
 
     init(
@@ -148,7 +150,9 @@ struct ChatThread: Identifiable, Codable, Equatable, Sendable, Hashable {
         peerName: String,
         unread: Int,
         messages: [ChatMessage],
-        participantIds: [String] = []
+        participantIds: [String] = [],
+        lastText: String = "",
+        lastAt: TimeInterval = 0
     ) {
         self.id = id
         self.listingId = listingId
@@ -157,6 +161,8 @@ struct ChatThread: Identifiable, Codable, Equatable, Sendable, Hashable {
         self.unread = unread
         self.messages = messages
         self.participantIds = participantIds
+        self.lastText = lastText
+        self.lastAt = lastAt
     }
 
     init(from decoder: Decoder) throws {
@@ -168,6 +174,8 @@ struct ChatThread: Identifiable, Codable, Equatable, Sendable, Hashable {
         unread = try container.decode(Int.self, forKey: .unread)
         messages = try container.decode([ChatMessage].self, forKey: .messages)
         participantIds = try container.decodeIfPresent([String].self, forKey: .participantIds) ?? []
+        lastText = try container.decodeIfPresent(String.self, forKey: .lastText) ?? ""
+        lastAt = try container.decodeIfPresent(TimeInterval.self, forKey: .lastAt) ?? 0
     }
 
     func encode(to encoder: Encoder) throws {
@@ -179,6 +187,8 @@ struct ChatThread: Identifiable, Codable, Equatable, Sendable, Hashable {
         try container.encode(unread, forKey: .unread)
         try container.encode(messages, forKey: .messages)
         try container.encode(participantIds, forKey: .participantIds)
+        try container.encode(lastText, forKey: .lastText)
+        try container.encode(lastAt, forKey: .lastAt)
     }
 }
 
@@ -187,6 +197,46 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable, Hashable {
     var fromMe: Bool
     var text: String
     var at: TimeInterval
+    var senderId: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, fromMe, text, at, senderId
+    }
+
+    init(id: String, fromMe: Bool, text: String, at: TimeInterval, senderId: String = "") {
+        self.id = id
+        self.fromMe = fromMe
+        self.text = text
+        self.at = at
+        self.senderId = senderId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        fromMe = try container.decode(Bool.self, forKey: .fromMe)
+        text = try container.decode(String.self, forKey: .text)
+        at = try container.decode(TimeInterval.self, forKey: .at)
+        senderId = try container.decodeIfPresent(String.self, forKey: .senderId) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(fromMe, forKey: .fromMe)
+        try container.encode(text, forKey: .text)
+        try container.encode(at, forKey: .at)
+        try container.encode(senderId, forKey: .senderId)
+    }
+
+    func oriented(as viewerId: String) -> ChatMessage {
+        var copy = self
+        if copy.senderId.isEmpty {
+            copy.senderId = copy.fromMe ? viewerId : ""
+        }
+        copy.fromMe = copy.senderId == viewerId
+        return copy
+    }
 }
 
 enum SeedLoader {

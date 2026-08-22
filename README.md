@@ -46,13 +46,15 @@ xcodebuild -project Autora.xcodeproj -scheme Autora \
 
 Сессия, свои лоты, избранное и черновик живут в UserDefaults. После перезапуска не пропадают.
 
-## Firebase — позже
+## Firebase
 
-Bundle: `com.borisdev.Autora`. Проект: `serzhanovich-ecosystem-ce700`.
+Bundle: `com.borisdev.Autora`. Проект: `serzhanovich-ecosystem-ce700`. Плист: `Autora/GoogleService-Info.plist`.
 
-Пока нет `GoogleService-Info.plist` — живой Auth и Firestore **не подключены**. Код функций лежит в `firebase/functions/` (`autoraSeedDemo`, `autoraWipeDemo`). Коллекции только с префиксом `autora_`.
+Чтобы чат и каталог совпали с CoolAV.by: Xcode → Add Package `https://github.com/firebase/firebase-ios-sdk` → **FirebaseAuth**, **FirebaseFirestore**, **FirebaseStorage**.
 
-Не делать `firebase deploy` без явных имён функций и `codebase: autora`. Не деплоить чужие Firestore rules.
+Функции: `autoraSeedDemo`, `autoraAdminOverview`, `autoraVinCheck`, `autoraValuate`, `autoraRefreshFx`, `autoraModerateListing`. Коллекции только `autora_*`.
+
+Не деплоить `firestore.autora.snippet.rules` соло. Не трогать Yoga/Wardrobe/Workout/Food.
 
 ## Структура
 

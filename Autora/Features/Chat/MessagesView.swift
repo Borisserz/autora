@@ -14,7 +14,13 @@ struct MessagesView: View {
                         text: "Войдите, чтобы писать продавцам с карточки авто.",
                         illustration: .messages,
                         actionTitle: "Войти",
-                        action: { model.signInDemo() }
+                        action: {
+                            if RemoteChatStore.isLive {
+                                model.selectedTab = .profile
+                            } else {
+                                model.signInDemo()
+                            }
+                        }
                     )
                 } else {
                     inbox
@@ -276,7 +282,7 @@ struct ChatThreadView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         if (thread?.messages ?? []).isEmpty {
-                            Text(InboxDesk.waitingForSeller)
+                            Text(RemoteChatStore.isLive ? "Пока пусто. Напишите — сообщение уйдёт на сайт." : InboxDesk.waitingForSeller)
                                 .font(.footnote)
                                 .foregroundStyle(AutoraTheme.muted)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -304,6 +310,9 @@ struct ChatThreadView: View {
         .onAppear {
             draft = model.chatDraft(for: threadID)
             model.markThreadRead(threadID)
+        }
+        .task {
+            await model.refreshRemoteThread(threadID)
         }
         .onChange(of: draft) { _, value in
             model.setChatDraft(value, for: threadID)

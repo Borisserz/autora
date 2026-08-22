@@ -10,5 +10,7 @@
 
 ```
 cd firebase
-npx -y firebase-tools@latest deploy --only functions:autoraSeedDemo,functions:autoraWipeDemo,functions:autoraOnListingWrite,functions:autoraNotifySavedSearch
+npx -y firebase-tools@latest deploy --only functions:autoraSeedDemo,functions:autoraWipeDemo,functions:autoraAdminOverview,functions:autoraOnListingWrite,functions:autoraNotifySavedSearch
 ```
+
+`OWNER_UIDS` and/or `OWNER_EMAILS` — два админа сайта и iOS. Не деплоить `firestore.autora.snippet.rules` соло.

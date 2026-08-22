@@ -94,6 +94,17 @@ struct AppModelTests {
         }
     }
 
+    @Test func startChatRejectsGhostSeller() {
+        let listing = listingFixture(id: "a", sellerId: "demo-seller-list-2")
+        let app = model(
+            listings: [listing],
+            session: .signedIn(UserProfile(id: "me-local", name: "Вы", phone: "+37529", isOwner: false))
+        )
+        #expect(throws: ChatStartError.ghostSeller) {
+            try app.startChat(for: listing)
+        }
+    }
+
     @Test func startChatRejectsOwnListing() {
         let listing = listingFixture(id: "a", sellerId: "me-local")
         let app = model(
